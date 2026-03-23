@@ -31,6 +31,10 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn throttle_indicator(throttle: &ThrottleData) -> Span<'static> {
+    if !throttle.available {
+        return Span::styled("— Throttle: N/A", Style::default().fg(Color::DarkGray));
+    }
+
     if throttle.is_any_active() {
         let mut flags = Vec::new();
         if throttle.is_under_voltage {

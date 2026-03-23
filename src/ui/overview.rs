@@ -183,6 +183,15 @@ fn draw_temp_section(f: &mut Frame, app: &App, area: Rect) {
         ));
     }
 
+    // Fan speed (Pi 5 only)
+    if app.fan.available {
+        spans.push(Span::raw("│ "));
+        spans.push(Span::styled(
+            format!("Fan: {} RPM ({:.0}%)", app.fan.rpm, app.fan.pwm_percent),
+            Style::default().fg(Color::Cyan),
+        ));
+    }
+
     f.render_widget(Paragraph::new(Line::from(spans)), inner);
 }
 

@@ -1,12 +1,17 @@
+mod disk;
 mod header;
+mod network;
 mod overview;
+mod power;
+mod processes;
+mod system;
 mod widgets;
 
 use crate::app::{App, TAB_NAMES};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Paragraph, Tabs};
+use ratatui::widgets::{Paragraph, Tabs};
 use ratatui::Frame;
 
 /// Render the complete UI frame.
@@ -54,22 +59,13 @@ fn draw_tab_bar(f: &mut Frame, app: &App, area: Rect) {
 fn draw_active_tab(f: &mut Frame, app: &App, area: Rect) {
     match app.active_tab {
         0 => overview::draw(f, app, area),
-        1 => draw_placeholder(f, "Processes", area),
-        2 => draw_placeholder(f, "Power", area),
-        3 => draw_placeholder(f, "Network", area),
-        4 => draw_placeholder(f, "Disk", area),
-        5 => draw_placeholder(f, "System", area),
+        1 => processes::draw(f, app, area),
+        2 => power::draw(f, app, area),
+        3 => network::draw(f, app, area),
+        4 => disk::draw(f, app, area),
+        5 => system::draw(f, app, area),
         _ => {}
     }
-}
-
-fn draw_placeholder(f: &mut Frame, name: &str, area: Rect) {
-    let block = Block::default()
-        .title(name)
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
-    let text = Paragraph::new(format!("{} tab — not yet implemented", name)).block(block);
-    f.render_widget(text, area);
 }
 
 fn draw_footer(f: &mut Frame, app: &App, area: Rect) {

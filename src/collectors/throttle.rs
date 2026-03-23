@@ -2,6 +2,8 @@ use serde::Serialize;
 
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct ThrottleData {
+    /// Whether throttle data was successfully read from vcgencmd
+    pub available: bool,
     // Current state
     pub is_under_voltage: bool,
     pub is_freq_capped: bool,
@@ -35,6 +37,7 @@ impl ThrottleData {
     /// Decode the throttle bitmask into named flags.
     pub fn from_bitmask(value: u32) -> Self {
         Self {
+            available: true,
             is_under_voltage: value & (1 << 0) != 0,
             is_freq_capped: value & (1 << 1) != 0,
             is_throttled: value & (1 << 2) != 0,

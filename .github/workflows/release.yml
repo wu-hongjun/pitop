@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-unknown-linux-gnu
+            name: aarch64
+          - target: armv7-unknown-linux-gnueabihf
+            name: armv7
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Install cross
+        run: cargo install cross --version 0.2.5
+      - name: Build
+        run: cross build --release --target ${{ matrix.target }}
+      - name: Package
+        run: |
+          tar czf pitop-${{ github.ref_name }}-${{ matrix.name }}.tar.gz \
+            -C target/${{ matrix.target }}/release pitop
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pitop-${{ matrix.name }}
+          path: pitop-*.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: "**/*.tar.gz"

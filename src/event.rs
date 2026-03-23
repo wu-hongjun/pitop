@@ -22,6 +22,34 @@ fn handle_key(app: &mut App, key: KeyEvent) {
         return;
     }
 
+    // If kill confirmation is active, only handle y/n/Esc
+    if let Some((pid, _)) = &app.kill_confirm {
+        let pid = *pid;
+        match key.code {
+            KeyCode::Char('y') => {
+                let result = unsafe { libc::kill(pid as i32, libc::SIGTERM) };
+                if result == 0 {
+                    app.kill_result = Some(format!("Sent SIGTERM to PID {}", pid));
+                } else {
+                    let errno = std::io::Error::last_os_error();
+                    app.kill_result = Some(format!("Failed to kill PID {}: {}", pid, errno));
+                }
+                app.kill_confirm = None;
+            }
+            KeyCode::Char('n') | KeyCode::Esc => {
+                app.kill_confirm = None;
+                app.kill_result = None;
+            }
+            _ => {}
+        }
+        return;
+    }
+
+    // Clear kill_result on any keypress
+    if app.kill_result.is_some() {
+        app.kill_result = None;
+    }
+
     match key.code {
         // Quit
         KeyCode::Char('q') => app.should_quit = true,
@@ -61,6 +89,16 @@ fn handle_key(app: &mut App, key: KeyEvent) {
             }
         }
 
+        // Kill process (Processes tab, uppercase K)
+        KeyCode::Char('K') => {
+            if app.active_tab == 1 && !app.processes.is_empty() {
+                let sorted = app.sorted_processes();
+                if let Some(proc) = sorted.get(app.process_selected) {
+                    app.kill_confirm = Some((proc.pid, proc.name.clone()));
+                }
+            }
+        }
+
         _ => {}
     }
 }
@@ -69,7 +107,6 @@ fn handle_key(app: &mut App, key: KeyEvent) {
 mod tests {
     use super::*;
     use crate::board::BoardType;
-    use std::path::Path;
     use tempfile::TempDir;
 
     fn test_app() -> App {

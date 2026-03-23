@@ -1,8 +1,12 @@
-use crate::board::{self, BoardProfile, BoardType, SystemInfo};
+use crate::board::{self, BoardProfile, BoardType, SystemInfo, VoltageSource};
 use crate::collectors::cpu::{CpuCollector, CpuData};
 use crate::collectors::disk::{DiskCollector, DiskData};
+use crate::collectors::fan::{FanCollector, FanData};
 use crate::collectors::memory::{MemoryCollector, MemoryData};
 use crate::collectors::network::{NetworkCollector, NetworkData};
+use crate::collectors::pcie::{PcieCollector, PcieData};
+use crate::collectors::poe::{PoeCollector, PoeData};
+use crate::collectors::power::{self, PowerData};
 use crate::collectors::process::ProcessCollector;
 use crate::collectors::process::ProcessInfo;
 use crate::collectors::thermal::{ThermalCollector, ThermalData};
@@ -10,6 +14,7 @@ use crate::collectors::throttle::ThrottleData;
 use crate::util::ring_buffer::RingBuffer;
 use crate::util::vcgencmd::VcgencmdRunner;
 use anyhow::Result;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 pub const TAB_COUNT: usize = 6;
@@ -35,11 +40,18 @@ pub struct App {
     pub processes: Vec<ProcessInfo>,
     pub network: NetworkData,
     pub disk: DiskData,
+    pub power: PowerData,
+    pub fan: FanData,
+    pub pcie: PcieData,
+    pub poe: PoeData,
 
     // Sparkline history
     pub cpu_history: RingBuffer<f64>,
     pub mem_history: RingBuffer<f64>,
     pub temp_history: RingBuffer<f64>,
+    pub power_history: RingBuffer<f64>,
+    pub network_rx_history: HashMap<String, RingBuffer<f64>>,
+    pub network_tx_history: HashMap<String, RingBuffer<f64>>,
 
     // UI state
     pub active_tab: usize,
@@ -50,6 +62,8 @@ pub struct App {
     // Process table state
     pub process_sort_column: usize,
     pub process_selected: usize,
+    pub kill_confirm: Option<(u32, String)>,
+    pub kill_result: Option<String>,
 
     // Collectors (owned)
     cpu_collector: CpuCollector,
@@ -58,6 +72,9 @@ pub struct App {
     network_collector: NetworkCollector,
     disk_collector: DiskCollector,
     process_collector: ProcessCollector,
+    fan_collector: FanCollector,
+    pcie_collector: PcieCollector,
+    poe_collector: PoeCollector,
     vcgencmd: VcgencmdRunner,
 
     root: PathBuf,
@@ -78,21 +95,33 @@ impl App {
             processes: Vec::new(),
             network: NetworkData::default(),
             disk: DiskData::default(),
+            power: PowerData::default(),
+            fan: FanData::default(),
+            pcie: PcieData::default(),
+            poe: PoeData::default(),
             cpu_history: RingBuffer::default(),
             mem_history: RingBuffer::default(),
             temp_history: RingBuffer::default(),
+            power_history: RingBuffer::default(),
+            network_rx_history: HashMap::new(),
+            network_tx_history: HashMap::new(),
             active_tab: 0,
             paused: false,
             should_quit: false,
             verbose,
             process_sort_column: 0,
             process_selected: 0,
+            kill_confirm: None, // (pid, name)
+            kill_result: None,
             cpu_collector: CpuCollector::new(root),
             memory_collector: MemoryCollector::new(root),
             thermal_collector: ThermalCollector::new(root),
             network_collector: NetworkCollector::new(root),
             disk_collector: DiskCollector::new(root),
             process_collector: ProcessCollector::new(root),
+            fan_collector: FanCollector::new(root),
+            pcie_collector: PcieCollector::new(root),
+            poe_collector: PoeCollector::new(root),
             vcgencmd: VcgencmdRunner::new(),
             root: root.to_path_buf(),
         }
@@ -124,6 +153,9 @@ impl App {
             self.network_collector.collect(&mut self.network),
         );
 
+        // Fan monitoring (always-on for overview display)
+        log_err(verbose, "fan", self.fan_collector.collect(&mut self.fan));
+
         // Throttle via vcgencmd
         if let Some(output) = self.vcgencmd.run(&["get_throttled"]).await {
             self.throttle = ThrottleData::from_vcgencmd_output(&output);
@@ -133,6 +165,34 @@ impl App {
         self.cpu_history.push(self.cpu.aggregate_usage_percent);
         self.mem_history.push(self.memory.usage_percent);
         self.temp_history.push(self.thermal.soc_temp_celsius);
+
+        // Update power sparkline (always-on so it has history when tab is opened)
+        if let Some(ref pmic) = self.power.pmic {
+            self.power_history.push(pmic.estimated_real_watts);
+        }
+
+        // Update per-interface network sparkline history
+        let current_ifaces: std::collections::HashSet<String> = self
+            .network
+            .interfaces
+            .iter()
+            .map(|i| i.name.clone())
+            .collect();
+        for iface in &self.network.interfaces {
+            self.network_rx_history
+                .entry(iface.name.clone())
+                .or_default()
+                .push(iface.rx_bytes_per_sec);
+            self.network_tx_history
+                .entry(iface.name.clone())
+                .or_default()
+                .push(iface.tx_bytes_per_sec);
+        }
+        // Prune departed interfaces to avoid unbounded growth
+        self.network_rx_history
+            .retain(|k, _| current_ifaces.contains(k));
+        self.network_tx_history
+            .retain(|k, _| current_ifaces.contains(k));
 
         // Tab-dependent collectors (lazy refresh)
         match self.active_tab {
@@ -144,7 +204,31 @@ impl App {
                     self.process_collector.collect(&mut self.processes),
                 );
             }
-            2 => { /* power: TODO in Epic 5 */ }
+            2 => {
+                // Power tab: collect PMIC / voltage data + PCIe + PoE
+                match self.profile.voltage_source() {
+                    VoltageSource::Pmic => {
+                        if let Some(output) = self.vcgencmd.run(&["pmic_read_adc"]).await {
+                            self.power.pmic = Some(power::parse_pmic_read_adc(&output));
+                        }
+                    }
+                    VoltageSource::MeasureVolts => {
+                        let mut voltages = Vec::new();
+                        for rail in &["core", "sdram_c", "sdram_i", "sdram_p"] {
+                            if let Some(output) = self.vcgencmd.run(&["measure_volts", rail]).await
+                            {
+                                if let Some(reading) = power::parse_measure_volts(rail, &output) {
+                                    voltages.push(reading);
+                                }
+                            }
+                        }
+                        self.power.voltages = voltages;
+                    }
+                    VoltageSource::None => {}
+                }
+                log_err(verbose, "pcie", self.pcie_collector.collect(&mut self.pcie));
+                log_err(verbose, "poe", self.poe_collector.collect(&mut self.poe));
+            }
             3 => { /* network detail: already collected */ }
             4 => {
                 log_err(verbose, "disk", self.disk_collector.collect(&mut self.disk));
@@ -152,6 +236,25 @@ impl App {
             5 => { /* system info: static, no refresh */ }
             _ => {}
         }
+    }
+
+    /// Return processes sorted according to the current sort column.
+    /// Both the UI and event handler use this to ensure consistent indexing.
+    pub fn sorted_processes(&self) -> Vec<ProcessInfo> {
+        let mut sorted = self.processes.clone();
+        match self.process_sort_column {
+            0 => sorted.sort_by_key(|p| p.pid),
+            1 => sorted.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase())),
+            2 => sorted.sort_by(|a, b| {
+                b.cpu_percent
+                    .partial_cmp(&a.cpu_percent)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            }),
+            3 => sorted.sort_by(|a, b| b.rss_bytes.cmp(&a.rss_bytes)),
+            4 => sorted.sort_by(|a, b| a.user.cmp(&b.user)),
+            _ => {}
+        }
+        sorted
     }
 
     pub fn next_tab(&mut self) {
