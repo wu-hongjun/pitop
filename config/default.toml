@@ -1,0 +1,37 @@
+# pitop default configuration
+# Copy to ~/.config/pitop/config.toml to customize
+
+[general]
+# Refresh interval in milliseconds
+interval_ms = 1000
+
+# Starting tab (1-6)
+default_tab = 1
+
+# Number of samples to keep in sparkline history
+history_size = 60
+
+[thresholds.cpu]
+# CPU usage percentage thresholds for color coding
+warning = 60    # yellow above this
+critical = 85   # red above this
+
+[thresholds.memory]
+# Memory usage percentage thresholds
+warning = 70
+critical = 90
+
+[thresholds.temperature]
+# Temperature in degrees Celsius
+warning = 60
+critical = 75
+
+[thresholds.disk]
+# Disk usage percentage thresholds
+warning = 70
+critical = 90
+
+[thresholds.swap]
+# Swap usage percentage thresholds
+warning = 25
+critical = 50
