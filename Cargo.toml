@@ -15,7 +15,7 @@ ratatui = "0.29"
 crossterm = "0.28"
 
 # Async runtime
-tokio = { version = "1", features = ["rt", "time", "process", "fs", "macros", "io-util"] }
+tokio = { version = "1", features = ["rt-multi-thread", "time", "process", "fs", "macros", "io-util"] }
 
 # Error handling
 anyhow = "1"
