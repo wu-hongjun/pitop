@@ -27,45 +27,59 @@ Think `htop` meets `mactop` — purpose-built for Raspberry Pi hardware with boa
 
 ## Installation
 
-### Quick Install (Raspberry Pi)
+### One-line install (recommended)
 
 ```sh
-curl -sL https://raw.githubusercontent.com/OWNER/pitop/main/scripts/install.sh | sh
+curl -sL https://wu-hongjun.github.io/pitop/install.sh | sh
 ```
 
-To install a specific version:
+Auto-detects your Pi model and architecture, downloads the right binary, and installs to `/usr/local/bin`. Pin a version with `PITOP_VERSION=v0.1.0`.
+
+### cargo install
 
 ```sh
-PITOP_VERSION=v0.1.0 curl -sL https://raw.githubusercontent.com/OWNER/pitop/main/scripts/install.sh | sh
+cargo install --git https://github.com/wu-hongjun/pitop
 ```
 
-### Build from Source
+### Build from source
 
-```bash
-git clone https://github.com/OWNER/pitop.git
+```sh
+git clone https://github.com/wu-hongjun/pitop.git
 cd pitop
 cargo build --release
 sudo cp target/release/pitop /usr/local/bin/
 ```
 
-### Cross-Compile
+### Cross-compile (from another machine)
 
-```bash
+```sh
 # For Pi 5 / Pi 4B (64-bit)
 cargo build --release --target aarch64-unknown-linux-gnu
 
-# For Zero 2W (32-bit)
+# For Pi 4B (32-bit)
 cargo build --release --target armv7-unknown-linux-gnueabihf
+```
+
+### Download binary
+
+Grab a tarball from [GitHub Releases](https://github.com/wu-hongjun/pitop/releases) and extract it:
+
+```sh
+tar xzf pitop-v*.tar.gz
+sudo mv pitop /usr/local/bin/
 ```
 
 ## Usage
 
 ```
-pitop                    # Start with defaults
-pitop -i 500             # 500ms refresh interval
-pitop -t 3               # Start on Power tab
-pitop --board pi5        # Force Pi 5 mode
-pitop -v                 # Verbose error output
+pitop                          # Start with defaults
+pitop -i 500                   # 500ms refresh interval
+pitop -t 3                     # Start on Power tab
+pitop --theme solarized        # Use solarized theme
+pitop --board pi5              # Force Pi 5 mode
+pitop --stress                 # Launch with CPU stress test
+pitop --generate-config        # Print sample config to stdout
+pitop --config-check           # Validate your config file
 ```
 
 ## Keyboard Controls
@@ -76,9 +90,13 @@ pitop -v                 # Verbose error output
 | `Tab` / `Shift+Tab` | Next / previous tab |
 | `q` / `Ctrl+C` | Quit |
 | `Space` | Pause / resume |
-| `j`/`k` or arrows | Navigate (Processes tab) |
+| `t` | Cycle color theme |
+| `?` | Help overlay |
+| `j`/`k` or arrows | Navigate (Processes / Help) |
 | `s` | Cycle sort column (Processes tab) |
 | `K` | Kill selected process (with confirm) |
+| `Ctrl+S` | Toggle stress test |
+| `Ctrl+Up/Down` | Add/remove stress workers |
 
 ## Tabs
 

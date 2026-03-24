@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pitop - Terminal System Monitor for Raspberry Pi</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; background: #0d1117; color: #c9d1d9; max-width: 700px; margin: 0 auto; padding: 2rem 1rem; line-height: 1.6; }
+  h1 { color: #58a6ff; font-size: 2rem; }
+  h2 { color: #8b949e; border-bottom: 1px solid #21262d; padding-bottom: 0.3em; margin-top: 2rem; }
+  a { color: #58a6ff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { background: #161b22; padding: 0.2em 0.4em; border-radius: 4px; font-size: 0.95em; }
+  pre { background: #161b22; padding: 1rem; border-radius: 8px; overflow-x: auto; border: 1px solid #30363d; }
+  pre code { padding: 0; background: none; }
+  .install-box { background: #161b22; border: 2px solid #58a6ff; border-radius: 8px; padding: 1rem 1.2rem; margin: 1.5rem 0; }
+  .install-box code { font-size: 1.05em; color: #7ee787; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; }
+  .card h3 { margin-top: 0; color: #58a6ff; }
+  .badge { display: inline-block; background: #238636; color: white; padding: 0.15em 0.5em; border-radius: 4px; font-size: 0.85em; margin-right: 0.3em; }
+  .badge.warn { background: #9e6a03; }
+  .badge.dim { background: #30363d; }
+  footer { margin-top: 3rem; color: #484f58; font-size: 0.85em; border-top: 1px solid #21262d; padding-top: 1rem; }
+</style>
+</head>
+<body>
+
+<h1>pitop</h1>
+<p>A terminal-based system monitor for Raspberry Pi, written in Rust.<br>
+Think <code>htop</code> meets <code>mactop</code> &mdash; purpose-built for Pi hardware.</p>
+
+<h2>Install</h2>
+
+<div class="install-box">
+<code>curl -sL https://wu-hongjun.github.io/pitop/install.sh | sh</code>
+</div>
+
+<p>That's it. The script auto-detects your Pi model and architecture, downloads the right binary, and installs it to <code>/usr/local/bin</code>.</p>
+
+<p>Pin a specific version:</p>
+<pre><code>curl -sL https://wu-hongjun.github.io/pitop/install.sh | PITOP_VERSION=v0.1.0 sh</code></pre>
+
+<h2>Other ways to install</h2>
+
+<div class="grid">
+  <div class="card">
+    <h3>cargo install</h3>
+    <p>If you have Rust installed:</p>
+    <pre><code>cargo install --git https://github.com/wu-hongjun/pitop</code></pre>
+  </div>
+  <div class="card">
+    <h3>Build from source</h3>
+    <pre><code>git clone https://github.com/wu-hongjun/pitop
+cd pitop
+cargo build --release
+sudo cp target/release/pitop /usr/local/bin/</code></pre>
+  </div>
+  <div class="card">
+    <h3>Install Rust first</h3>
+    <p>If you don't have Rust on your Pi:</p>
+    <pre><code>curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source ~/.cargo/env</code></pre>
+  </div>
+  <div class="card">
+    <h3>Download binary</h3>
+    <p>Grab a release tarball directly from
+    <a href="https://github.com/wu-hongjun/pitop/releases">GitHub Releases</a>.</p>
+    <pre><code>tar xzf pitop-v*.tar.gz
+sudo mv pitop /usr/local/bin/</code></pre>
+  </div>
+</div>
+
+<h2>Supported boards</h2>
+<table style="width:100%; border-collapse: collapse;">
+<tr style="border-bottom: 1px solid #30363d;">
+  <th style="text-align:left; padding:0.5em;">Board</th>
+  <th style="text-align:left; padding:0.5em;">Arch</th>
+  <th style="text-align:left; padding:0.5em;">Features</th>
+</tr>
+<tr><td style="padding:0.4em;">Pi 5</td><td>aarch64</td><td><span class="badge">PMIC</span><span class="badge">Fan</span><span class="badge">PCIe</span><span class="badge">PoE</span></td></tr>
+<tr><td style="padding:0.4em;">Pi 4 Model B</td><td>aarch64 / armv7</td><td><span class="badge">Voltages</span><span class="badge">PoE</span></td></tr>
+<tr><td style="padding:0.4em;">Pi Zero 2 W</td><td>aarch64</td><td><span class="badge dim">Basic</span></td></tr>
+<tr><td style="padding:0.4em;">Generic Linux</td><td>any</td><td><span class="badge dim">CPU/Mem/Net/Disk</span></td></tr>
+</table>
+
+<h2>Quick start</h2>
+<pre><code># Launch
+pitop
+
+# Start on the Power tab
+pitop --tab 3
+
+# Solarized theme, 500ms refresh
+pitop --theme solarized --interval 500
+
+# Stress test your Pi
+pitop --stress
+
+# Generate a config file
+pitop --generate-config > ~/.config/pitop/config.toml</code></pre>
+
+<h2>Keyboard shortcuts</h2>
+<pre><code>1-6          Switch tab
+Tab/Shift+Tab  Next/prev tab
+q / Ctrl+C   Quit
+Space        Pause/resume
+t            Cycle theme
+?            Help overlay
+j/k          Navigate (processes / help)
+s            Sort column (processes)
+K            Kill process
+Ctrl+S       Toggle stress test
+Ctrl+Up/Down Adjust stress workers</code></pre>
+
+<footer>
+<a href="https://github.com/wu-hongjun/pitop">GitHub</a> &middot;
+<a href="https://github.com/wu-hongjun/pitop/releases">Releases</a> &middot;
+MIT License
+</footer>
+
+</body>
+</html>

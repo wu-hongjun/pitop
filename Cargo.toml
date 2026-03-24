@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["pitop contributors"]
 description = "Terminal-based system monitor for Raspberry Pi"
 license = "MIT"
-repository = "https://github.com/OWNER/pitop"
+repository = "https://github.com/wu-hongjun/pitop"
 keywords = ["raspberry-pi", "tui", "monitoring", "system"]
 categories = ["command-line-utilities"]
 
