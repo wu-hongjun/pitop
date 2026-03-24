@@ -4,13 +4,16 @@
 mod app;
 mod board;
 mod collectors;
+mod config;
 mod event;
+mod stress;
 mod ui;
 mod util;
 
 use anyhow::Result;
 use app::App;
 use clap::Parser;
+use config::Config;
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::execute;
 use crossterm::terminal::{
@@ -21,6 +24,8 @@ use ratatui::Terminal;
 use std::io;
 use std::path::Path;
 use std::time::Duration;
+use stress::StressTest;
+use ui::theme::Theme;
 
 #[derive(Parser)]
 #[command(
@@ -30,20 +35,44 @@ use std::time::Duration;
 )]
 struct Cli {
     /// Refresh interval in milliseconds (minimum 100)
-    #[arg(short = 'i', long, default_value = "1000", value_parser = clap::value_parser!(u64).range(100..))]
-    interval: u64,
+    #[arg(short = 'i', long, value_parser = clap::value_parser!(u64).range(100..))]
+    interval: Option<u64>,
 
     /// Starting tab number (1-6)
-    #[arg(short, long, default_value = "1", value_parser = clap::value_parser!(u8).range(1..=6))]
-    tab: u8,
+    #[arg(short, long, value_parser = clap::value_parser!(u8).range(1..=6))]
+    tab: Option<u8>,
+
+    /// Path to config file
+    #[arg(short, long)]
+    config: Option<String>,
 
     /// Force board type (auto/pi5/pi4b/zero2w)
     #[arg(long, default_value = "auto")]
     board: String,
 
+    /// Color theme (default/monochrome/solarized)
+    #[arg(long)]
+    theme: Option<String>,
+
     /// Enable verbose error output
     #[arg(short, long)]
     verbose: bool,
+
+    /// Start CPU stress test on launch
+    #[arg(long)]
+    stress: bool,
+
+    /// Number of stress test worker threads (defaults to CPU core count)
+    #[arg(long, value_parser = clap::value_parser!(u16).range(1..))]
+    stress_workers: Option<u16>,
+
+    /// Print a fully-commented sample config.toml to stdout and exit
+    #[arg(long)]
+    generate_config: bool,
+
+    /// Load config, validate it, print results, and exit
+    #[arg(long)]
+    config_check: bool,
 }
 
 #[tokio::main]
@@ -57,6 +86,38 @@ async fn main() -> Result<()> {
 
     let cli = Cli::parse();
 
+    // --generate-config: print sample config and exit
+    if cli.generate_config {
+        print!("{}", config::generate_sample());
+        return Ok(());
+    }
+
+    // --config-check: load, validate, print result, and exit
+    if cli.config_check {
+        let config = Config::load_raw(cli.config.as_deref().map(Path::new))?;
+        match config.validate() {
+            Ok(()) => {
+                println!("Configuration is valid.");
+                return Ok(());
+            }
+            Err(e) => {
+                eprintln!("Configuration error: {e}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    // Load configuration: CLI --config path > default XDG path > built-in defaults
+    let config = Config::load(cli.config.as_deref().map(Path::new))?;
+
+    // CLI args override config file values
+    let interval = cli.interval.unwrap_or(config.general.interval_ms);
+    let tab = cli.tab.unwrap_or(config.general.default_tab);
+    let theme_name: String = cli
+        .theme
+        .clone()
+        .unwrap_or_else(|| config.general.theme.clone());
+
     let root = Path::new("/");
 
     // Determine board type: use override if specified, otherwise auto-detect
@@ -66,12 +127,36 @@ async fn main() -> Result<()> {
         board::parse_board_override(&cli.board)?
     };
 
-    let mut app = App::new(board_type, root, cli.verbose);
+    let mut app = App::new(board_type, root, cli.verbose, config);
 
-    // Set starting tab (convert 1-based CLI arg to 0-based index)
-    app.set_tab((cli.tab - 1) as usize);
+    // Set the initial theme, and sync theme_index so cycling starts from here
+    if theme_name == "custom" {
+        if let Some(ref ct) = app.config.custom_theme {
+            app.theme = Theme::from_config(ct);
+        }
+    } else {
+        app.theme = Theme::from_name(&theme_name).unwrap_or_default();
+    }
+    // Find the matching index in theme_names for the starting theme
+    if let Some(idx) = app.theme_names.iter().position(|n| n == &theme_name) {
+        app.theme_index = idx;
+    }
 
-    let tick_rate = Duration::from_millis(cli.interval);
+    // Set starting tab (convert 1-based to 0-based index)
+    app.set_tab(tab.saturating_sub(1) as usize);
+
+    let tick_rate = Duration::from_millis(interval);
+
+    // Start stress test if requested
+    if cli.stress {
+        let worker_count = cli
+            .stress_workers
+            .map(|n| n as usize)
+            .unwrap_or_else(|| stress::num_cpus_from_proc(root).max(1));
+        let mut st = StressTest::new(worker_count);
+        st.start();
+        app.stress = Some(st);
+    }
 
     // Run TUI
     let result = run_tui(&mut app, tick_rate).await;

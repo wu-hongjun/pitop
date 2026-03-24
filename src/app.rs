@@ -2,6 +2,7 @@ use crate::board::{self, BoardProfile, BoardType, SystemInfo, VoltageSource};
 use crate::collectors::cpu::{CpuCollector, CpuData};
 use crate::collectors::disk::{DiskCollector, DiskData};
 use crate::collectors::fan::{FanCollector, FanData};
+use crate::collectors::gpu::{self, GpuData};
 use crate::collectors::memory::{MemoryCollector, MemoryData};
 use crate::collectors::network::{NetworkCollector, NetworkData};
 use crate::collectors::pcie::{PcieCollector, PcieData};
@@ -11,6 +12,9 @@ use crate::collectors::process::ProcessCollector;
 use crate::collectors::process::ProcessInfo;
 use crate::collectors::thermal::{ThermalCollector, ThermalData};
 use crate::collectors::throttle::ThrottleData;
+use crate::config::Config;
+use crate::stress::StressTest;
+use crate::ui::theme::Theme;
 use crate::util::ring_buffer::RingBuffer;
 use crate::util::vcgencmd::VcgencmdRunner;
 use anyhow::Result;
@@ -28,6 +32,12 @@ pub const TAB_NAMES: [&str; TAB_COUNT] = [
 ];
 
 pub struct App {
+    // Configuration
+    pub config: Config,
+    pub theme: Theme,
+    pub theme_names: Vec<String>,
+    pub theme_index: usize,
+
     // Board
     pub profile: Box<dyn BoardProfile>,
     pub system_info: SystemInfo,
@@ -44,12 +54,14 @@ pub struct App {
     pub fan: FanData,
     pub pcie: PcieData,
     pub poe: PoeData,
+    pub gpu: GpuData,
 
     // Sparkline history
     pub cpu_history: RingBuffer<f64>,
     pub mem_history: RingBuffer<f64>,
     pub temp_history: RingBuffer<f64>,
     pub power_history: RingBuffer<f64>,
+    pub gpu_freq_history: RingBuffer<f64>,
     pub network_rx_history: HashMap<String, RingBuffer<f64>>,
     pub network_tx_history: HashMap<String, RingBuffer<f64>>,
 
@@ -64,6 +76,9 @@ pub struct App {
     pub process_selected: usize,
     pub kill_confirm: Option<(u32, String)>,
     pub kill_result: Option<String>,
+    pub show_help: bool,
+    pub help_scroll: usize,
+    pub stress: Option<StressTest>,
 
     // Collectors (owned)
     cpu_collector: CpuCollector,
@@ -81,11 +96,26 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(board_type: BoardType, root: &Path, verbose: bool) -> Self {
+    pub fn new(board_type: BoardType, root: &Path, verbose: bool, config: Config) -> Self {
         let profile = board::create_profile(board_type);
         let system_info = board::collect_system_info(root);
 
+        let history_size = config.general.history_size;
+
+        let mut theme_names = vec![
+            "default".to_string(),
+            "monochrome".to_string(),
+            "solarized".to_string(),
+        ];
+        if config.custom_theme.is_some() {
+            theme_names.push("custom".to_string());
+        }
+
         Self {
+            config,
+            theme: Theme::default(),
+            theme_names,
+            theme_index: 0,
             profile,
             system_info,
             cpu: CpuData::default(),
@@ -99,10 +129,12 @@ impl App {
             fan: FanData::default(),
             pcie: PcieData::default(),
             poe: PoeData::default(),
-            cpu_history: RingBuffer::default(),
-            mem_history: RingBuffer::default(),
-            temp_history: RingBuffer::default(),
-            power_history: RingBuffer::default(),
+            gpu: GpuData::default(),
+            cpu_history: RingBuffer::new(history_size),
+            mem_history: RingBuffer::new(history_size),
+            temp_history: RingBuffer::new(history_size),
+            power_history: RingBuffer::new(history_size),
+            gpu_freq_history: RingBuffer::new(history_size),
             network_rx_history: HashMap::new(),
             network_tx_history: HashMap::new(),
             active_tab: 0,
@@ -113,6 +145,9 @@ impl App {
             process_selected: 0,
             kill_confirm: None, // (pid, name)
             kill_result: None,
+            show_help: false,
+            help_scroll: 0,
+            stress: None,
             cpu_collector: CpuCollector::new(root),
             memory_collector: MemoryCollector::new(root),
             thermal_collector: ThermalCollector::new(root),
@@ -156,6 +191,43 @@ impl App {
         // Fan monitoring (always-on for overview display)
         log_err(verbose, "fan", self.fan_collector.collect(&mut self.fan));
 
+        // GPU monitoring via vcgencmd (always-on for overview display)
+        {
+            let mut gpu_available = false;
+            if let Some(output) = self.vcgencmd.run(&["measure_clock", "core"]).await {
+                if let Some(freq) = gpu::parse_clock_core(&output) {
+                    self.gpu.frequency_mhz = freq;
+                    gpu_available = true;
+                }
+            }
+            if let Some(output) = self.vcgencmd.run(&["get_mem", "gpu"]).await {
+                if let Some(mem) = gpu::parse_get_mem_gpu(&output) {
+                    self.gpu.memory_mb = mem;
+                    gpu_available = true;
+                }
+            }
+            if let Some(output) = self.vcgencmd.run(&["measure_temp"]).await {
+                if let Some(temp) = gpu::parse_measure_temp(&output) {
+                    self.gpu.temperature_celsius = temp;
+                    gpu_available = true;
+                }
+            }
+            // Query V3D codec status
+            let mut codecs = Vec::new();
+            for codec in &["H264", "HEVC"] {
+                if let Some(output) = self.vcgencmd.run(&["codec_enabled", codec]).await {
+                    if let Some(status) = gpu::parse_codec_enabled(codec, &output) {
+                        codecs.push(status);
+                    }
+                }
+            }
+            if !codecs.is_empty() {
+                self.gpu.codecs = codecs;
+            }
+
+            self.gpu.available = gpu_available;
+        }
+
         // Throttle via vcgencmd
         if let Some(output) = self.vcgencmd.run(&["get_throttled"]).await {
             self.throttle = ThrottleData::from_vcgencmd_output(&output);
@@ -165,11 +237,10 @@ impl App {
         self.cpu_history.push(self.cpu.aggregate_usage_percent);
         self.mem_history.push(self.memory.usage_percent);
         self.temp_history.push(self.thermal.soc_temp_celsius);
+        self.gpu_freq_history.push(self.gpu.frequency_mhz as f64);
 
-        // Update power sparkline (always-on so it has history when tab is opened)
-        if let Some(ref pmic) = self.power.pmic {
-            self.power_history.push(pmic.estimated_real_watts);
-        }
+        // Power sparkline is updated inside the PMIC branch below (tab 2)
+        // to avoid recording stale values when the Power tab is not active.
 
         // Update per-interface network sparkline history
         let current_ifaces: std::collections::HashSet<String> = self
@@ -210,6 +281,9 @@ impl App {
                     VoltageSource::Pmic => {
                         if let Some(output) = self.vcgencmd.run(&["pmic_read_adc"]).await {
                             self.power.pmic = Some(power::parse_pmic_read_adc(&output));
+                        }
+                        if let Some(ref pmic) = self.power.pmic {
+                            self.power_history.push(pmic.estimated_real_watts);
                         }
                     }
                     VoltageSource::MeasureVolts => {
@@ -277,6 +351,22 @@ impl App {
 
     pub fn toggle_pause(&mut self) {
         self.paused = !self.paused;
+    }
+
+    /// Advance to the next theme in the cycle.
+    pub fn cycle_theme(&mut self) {
+        if self.theme_names.is_empty() {
+            return;
+        }
+        self.theme_index = (self.theme_index + 1) % self.theme_names.len();
+        let name = &self.theme_names[self.theme_index];
+        if name == "custom" {
+            if let Some(ref ct) = self.config.custom_theme {
+                self.theme = Theme::from_config(ct);
+            }
+        } else {
+            self.theme = Theme::from_name(name).unwrap_or_default();
+        }
     }
 
     /// Read uptime from /proc/uptime.

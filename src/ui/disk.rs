@@ -1,4 +1,5 @@
 use crate::app::App;
+use crate::ui::theme::Theme;
 use crate::util::format::{format_bytes, format_bytes_per_sec};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -19,12 +20,13 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_partition_table(f: &mut Frame, app: &App, area: Rect) {
+    let theme = &app.theme;
     let header_cells = ["Device", "Mount", "Type", "Total", "Used", "Free", "Use%"]
         .iter()
         .map(|h| {
             Cell::from(*h).style(
                 Style::default()
-                    .fg(Color::Yellow)
+                    .fg(theme.title)
                     .add_modifier(Modifier::BOLD),
             )
         });
@@ -35,7 +37,7 @@ fn draw_partition_table(f: &mut Frame, app: &App, area: Rect) {
         .partitions
         .iter()
         .map(|p| {
-            let usage_color = usage_color(p.usage_percent);
+            let usage_color = usage_color(theme, p.usage_percent);
             Row::new(vec![
                 Cell::from(p.device.clone()),
                 Cell::from(p.mountpoint.clone()),
@@ -66,20 +68,21 @@ fn draw_partition_table(f: &mut Frame, app: &App, area: Rect) {
         Block::default()
             .title(" Partitions ")
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Cyan)),
+            .border_style(Style::default().fg(theme.border_highlight)),
     )
-    .style(Style::default().fg(Color::White));
+    .style(Style::default().fg(theme.text));
 
     f.render_widget(table, area);
 }
 
 fn draw_io_stats(f: &mut Frame, app: &App, area: Rect) {
+    let theme = &app.theme;
     let header_cells = ["Device", "Read/s", "Write/s", "Total Read", "Total Written"]
         .iter()
         .map(|h| {
             Cell::from(*h).style(
                 Style::default()
-                    .fg(Color::Yellow)
+                    .fg(theme.title)
                     .add_modifier(Modifier::BOLD),
             )
         });
@@ -90,8 +93,8 @@ fn draw_io_stats(f: &mut Frame, app: &App, area: Rect) {
         .io_stats
         .iter()
         .map(|io| {
-            let read_color = throughput_color(io.read_bytes_per_sec);
-            let write_color = throughput_color(io.write_bytes_per_sec);
+            let read_color = throughput_color(theme, io.read_bytes_per_sec);
+            let write_color = throughput_color(theme, io.write_bytes_per_sec);
             Row::new(vec![
                 Cell::from(io.device.clone()),
                 Cell::from(format_bytes_per_sec(io.read_bytes_per_sec))
@@ -119,32 +122,32 @@ fn draw_io_stats(f: &mut Frame, app: &App, area: Rect) {
         Block::default()
             .title(" Disk I/O ")
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Cyan)),
+            .border_style(Style::default().fg(theme.border_highlight)),
     )
-    .style(Style::default().fg(Color::White));
+    .style(Style::default().fg(theme.text));
 
     f.render_widget(table, area);
 }
 
 /// Color for disk usage percentage.
-fn usage_color(percent: f64) -> Color {
+fn usage_color(theme: &Theme, percent: f64) -> Color {
     if percent >= 90.0 {
-        Color::Red
+        theme.gauge_crit
     } else if percent >= 70.0 {
-        Color::Yellow
+        theme.gauge_warn
     } else {
-        Color::Green
+        theme.gauge_low
     }
 }
 
-/// Color for I/O throughput — cyan for active, dark gray for idle.
-fn throughput_color(bytes_per_sec: f64) -> Color {
+/// Color for I/O throughput — highlight for active, dim for idle.
+fn throughput_color(theme: &Theme, bytes_per_sec: f64) -> Color {
     if bytes_per_sec >= 1_048_576.0 {
         // >= 1 MiB/s
-        Color::Cyan
+        theme.border_highlight
     } else if bytes_per_sec > 0.5 {
-        Color::White
+        theme.text
     } else {
-        Color::DarkGray
+        theme.text_dim
     }
 }

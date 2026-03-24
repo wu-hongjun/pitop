@@ -1,7 +1,7 @@
 use crate::app::App;
 use crate::util::format::{format_bytes, format_duration, format_freq_mhz};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
@@ -27,10 +27,11 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_board_section(f: &mut Frame, app: &App, area: Rect) {
+    let theme = &app.theme;
     let block = Block::default()
         .title(" Board ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(theme.border_highlight));
 
     let inner = block.inner(area);
     f.render_widget(block, area);
@@ -50,19 +51,20 @@ fn draw_board_section(f: &mut Frame, app: &App, area: Rect) {
     };
 
     let lines = vec![
-        info_line("Model", &model),
-        info_line("Board", board_type),
-        info_line("SoC", app.profile.soc_name()),
+        info_line(app, "Model", &model),
+        info_line(app, "Board", board_type),
+        info_line(app, "SoC", app.profile.soc_name()),
     ];
 
     f.render_widget(Paragraph::new(lines), inner);
 }
 
 fn draw_system_section(f: &mut Frame, app: &App, area: Rect) {
+    let theme = &app.theme;
     let block = Block::default()
         .title(" System ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Green));
+        .border_style(Style::default().fg(theme.net_border));
 
     let inner = block.inner(area);
     f.render_widget(block, area);
@@ -96,21 +98,22 @@ fn draw_system_section(f: &mut Frame, app: &App, area: Rect) {
     let uptime = format_duration(app.uptime_seconds());
 
     let lines = vec![
-        info_line("Kernel", kernel),
-        info_line("OS", &os_display),
-        info_line("Hostname", hostname),
-        info_line("Arch", arch),
-        info_line("Uptime", &uptime),
+        info_line(app, "Kernel", kernel),
+        info_line(app, "OS", &os_display),
+        info_line(app, "Hostname", hostname),
+        info_line(app, "Arch", arch),
+        info_line(app, "Uptime", &uptime),
     ];
 
     f.render_widget(Paragraph::new(lines), inner);
 }
 
 fn draw_cpu_section(f: &mut Frame, app: &App, area: Rect) {
+    let theme = &app.theme;
     let block = Block::default()
         .title(" CPU ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Blue));
+        .border_style(Style::default().fg(theme.cpu_border));
 
     let inner = block.inner(area);
     f.render_widget(block, area);
@@ -140,20 +143,21 @@ fn draw_cpu_section(f: &mut Frame, app: &App, area: Rect) {
     };
 
     let lines = vec![
-        info_line("Model", cpu_model),
-        info_line("Cores", &core_count),
-        info_line("Freq Range", &freq_range),
-        info_line("Governor", &governor),
+        info_line(app, "Model", cpu_model),
+        info_line(app, "Cores", &core_count),
+        info_line(app, "Freq Range", &freq_range),
+        info_line(app, "Governor", &governor),
     ];
 
     f.render_widget(Paragraph::new(lines), inner);
 }
 
 fn draw_memory_section(f: &mut Frame, app: &App, area: Rect) {
+    let theme = &app.theme;
     let block = Block::default()
         .title(" Memory ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Magenta));
+        .border_style(Style::default().fg(theme.mem_border));
 
     let inner = block.inner(area);
     f.render_widget(block, area);
@@ -171,18 +175,19 @@ fn draw_memory_section(f: &mut Frame, app: &App, area: Rect) {
     };
 
     let lines = vec![
-        info_line("Total RAM", &total_ram),
-        info_line("Total Swap", &total_swap),
+        info_line(app, "Total RAM", &total_ram),
+        info_line(app, "Total Swap", &total_swap),
     ];
 
     f.render_widget(Paragraph::new(lines), inner);
 }
 
 fn draw_capabilities_section(f: &mut Frame, app: &App, area: Rect) {
+    let theme = &app.theme;
     let block = Block::default()
         .title(" Capabilities ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Yellow));
+        .border_style(Style::default().fg(theme.border_highlight));
 
     let inner = block.inner(area);
     f.render_widget(block, area);
@@ -198,17 +203,15 @@ fn draw_capabilities_section(f: &mut Frame, app: &App, area: Rect) {
 
     for (name, available) in &capabilities {
         let (indicator, color) = if *available {
-            ("Available", Color::Green)
+            ("Available", theme.gauge_low)
         } else {
-            ("N/A", Color::DarkGray)
+            ("N/A", theme.text_dim)
         };
 
         lines.push(Line::from(vec![
             Span::styled(
                 format!("  {:<14}", name),
-                Style::default()
-                    .fg(Color::White)
-                    .add_modifier(Modifier::BOLD),
+                Style::default().fg(theme.text).add_modifier(Modifier::BOLD),
             ),
             Span::styled(indicator, Style::default().fg(color)),
         ]));
@@ -218,14 +221,15 @@ fn draw_capabilities_section(f: &mut Frame, app: &App, area: Rect) {
 }
 
 /// Helper to create a labeled info line with consistent formatting.
-fn info_line<'a>(label: &'a str, value: &'a str) -> Line<'a> {
+fn info_line<'a>(app: &'a App, label: &'a str, value: &'a str) -> Line<'a> {
+    let theme = &app.theme;
     Line::from(vec![
         Span::styled(
             format!("  {:<14}", label),
             Style::default()
-                .fg(Color::DarkGray)
+                .fg(theme.text_dim)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(value, Style::default().fg(Color::White)),
+        Span::styled(value, Style::default().fg(theme.text)),
     ])
 }

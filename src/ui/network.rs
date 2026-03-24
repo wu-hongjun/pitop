@@ -1,7 +1,7 @@
 use crate::app::App;
 use crate::util::format::{format_bytes, format_bytes_per_sec};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Cell, Paragraph, Row, Sparkline, Table};
 use ratatui::Frame;
@@ -32,32 +32,33 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_summary(f: &mut Frame, app: &App, area: Rect) {
+    let theme = &app.theme;
     let block = Block::default()
         .title(" Network Summary ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Green));
+        .border_style(Style::default().fg(theme.net_border));
 
     let inner = block.inner(area);
     f.render_widget(block, area);
 
     let line = Line::from(vec![
-        Span::styled("↓ RX: ", Style::default().fg(Color::Green)),
+        Span::styled("↓ RX: ", Style::default().fg(theme.net_border)),
         Span::styled(
             format_bytes_per_sec(app.network.total_rx_bytes_per_sec),
-            Style::default().fg(Color::White),
+            Style::default().fg(theme.text),
         ),
         Span::raw("  "),
-        Span::styled("↑ TX: ", Style::default().fg(Color::Red)),
+        Span::styled("↑ TX: ", Style::default().fg(theme.gauge_warn)),
         Span::styled(
             format_bytes_per_sec(app.network.total_tx_bytes_per_sec),
-            Style::default().fg(Color::White),
+            Style::default().fg(theme.text),
         ),
         Span::raw("  "),
-        Span::styled("│ ", Style::default().fg(Color::DarkGray)),
-        Span::styled("Connections: ", Style::default().fg(Color::Cyan)),
+        Span::styled("│ ", Style::default().fg(theme.text_dim)),
+        Span::styled("Connections: ", Style::default().fg(theme.border_highlight)),
         Span::styled(
             format!("{}", app.network.connection_count),
-            Style::default().fg(Color::White),
+            Style::default().fg(theme.text),
         ),
     ]);
 
@@ -65,6 +66,7 @@ fn draw_summary(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_interface_table(f: &mut Frame, app: &App, area: Rect) {
+    let theme = &app.theme;
     let header_cells = [
         "Interface",
         "Status",
@@ -79,7 +81,7 @@ fn draw_interface_table(f: &mut Frame, app: &App, area: Rect) {
     .map(|h| {
         Cell::from(*h).style(
             Style::default()
-                .fg(Color::Yellow)
+                .fg(theme.title)
                 .add_modifier(Modifier::BOLD),
         )
     });
@@ -91,9 +93,9 @@ fn draw_interface_table(f: &mut Frame, app: &App, area: Rect) {
         .iter()
         .map(|iface| {
             let status_color = if iface.operstate == "up" {
-                Color::Green
+                theme.gauge_low
             } else {
-                Color::Red
+                theme.gauge_crit
             };
             let status_display = if iface.operstate.is_empty() {
                 "—".to_string()
@@ -112,16 +114,16 @@ fn draw_interface_table(f: &mut Frame, app: &App, area: Rect) {
             };
 
             Row::new(vec![
-                Cell::from(iface.name.clone()).style(Style::default().fg(Color::Cyan)),
+                Cell::from(iface.name.clone()).style(Style::default().fg(theme.border_highlight)),
                 Cell::from(status_display).style(Style::default().fg(status_color)),
-                Cell::from(mac_display).style(Style::default().fg(Color::DarkGray)),
-                Cell::from(ipv6_display).style(Style::default().fg(Color::DarkGray)),
+                Cell::from(mac_display).style(Style::default().fg(theme.text_dim)),
+                Cell::from(ipv6_display).style(Style::default().fg(theme.text_dim)),
                 Cell::from(format_bytes(iface.rx_bytes)),
                 Cell::from(format_bytes(iface.tx_bytes)),
                 Cell::from(format_bytes_per_sec(iface.rx_bytes_per_sec))
-                    .style(Style::default().fg(Color::Green)),
+                    .style(Style::default().fg(theme.net_border)),
                 Cell::from(format_bytes_per_sec(iface.tx_bytes_per_sec))
-                    .style(Style::default().fg(Color::Red)),
+                    .style(Style::default().fg(theme.gauge_crit)),
             ])
         })
         .collect();
@@ -144,7 +146,7 @@ fn draw_interface_table(f: &mut Frame, app: &App, area: Rect) {
         Block::default()
             .title(" Interfaces ")
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Green)),
+            .border_style(Style::default().fg(theme.net_border)),
     )
     .row_highlight_style(Style::default().add_modifier(Modifier::BOLD));
 
@@ -152,6 +154,7 @@ fn draw_interface_table(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_sparklines(f: &mut Frame, app: &App, area: Rect) {
+    let theme = &app.theme;
     if app.network.interfaces.is_empty() {
         return;
     }
@@ -197,11 +200,11 @@ fn draw_sparklines(f: &mut Frame, app: &App, area: Rect) {
                         format_bytes_per_sec(iface.rx_bytes_per_sec)
                     ))
                     .borders(Borders::ALL)
-                    .border_style(Style::default().fg(Color::Green)),
+                    .border_style(Style::default().fg(theme.net_border)),
             )
             .data(&rx_data)
             .max(rx_max)
-            .style(Style::default().fg(Color::Green));
+            .style(Style::default().fg(theme.net_border));
         f.render_widget(rx_spark, cols[0]);
 
         // TX sparkline
@@ -222,11 +225,11 @@ fn draw_sparklines(f: &mut Frame, app: &App, area: Rect) {
                         format_bytes_per_sec(iface.tx_bytes_per_sec)
                     ))
                     .borders(Borders::ALL)
-                    .border_style(Style::default().fg(Color::Red)),
+                    .border_style(Style::default().fg(theme.gauge_crit)),
             )
             .data(&tx_data)
             .max(tx_max)
-            .style(Style::default().fg(Color::Red));
+            .style(Style::default().fg(theme.gauge_crit));
         f.render_widget(tx_spark, cols[1]);
     }
 }

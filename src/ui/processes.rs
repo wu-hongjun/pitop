@@ -1,7 +1,7 @@
 use crate::app::App;
 use crate::util::format::format_bytes;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph, Row, Table};
 use ratatui::Frame;
@@ -23,6 +23,7 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_process_table(f: &mut Frame, app: &App, area: Rect) {
+    let theme = &app.theme;
     let sort_col = app.process_sort_column;
 
     // Build header with sort indicator
@@ -34,11 +35,11 @@ fn draw_process_table(f: &mut Frame, app: &App, area: Rect) {
                 Span::styled(
                     format!("{} ▼", name),
                     Style::default()
-                        .fg(Color::Yellow)
+                        .fg(theme.title)
                         .add_modifier(Modifier::BOLD),
                 )
             } else {
-                Span::styled(name.to_string(), Style::default().fg(Color::White))
+                Span::styled(name.to_string(), Style::default().fg(theme.text))
             }
         })
         .collect();
@@ -57,11 +58,11 @@ fn draw_process_table(f: &mut Frame, app: &App, area: Rect) {
         .map(|(i, proc)| {
             let style = if i == app.process_selected {
                 Style::default()
-                    .bg(Color::DarkGray)
-                    .fg(Color::White)
+                    .bg(theme.highlight_bg)
+                    .fg(theme.text)
                     .add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(Color::White)
+                Style::default().fg(theme.text)
             };
 
             Row::new(vec![
@@ -89,7 +90,7 @@ fn draw_process_table(f: &mut Frame, app: &App, area: Rect) {
             Block::default()
                 .title(format!(" Processes ({}) ", sorted_procs.len()))
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan)),
+                .border_style(Style::default().fg(theme.border_highlight)),
         )
         .column_spacing(1);
 
@@ -97,23 +98,23 @@ fn draw_process_table(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_status_bar(f: &mut Frame, app: &App, area: Rect) {
+    let theme = &app.theme;
+
     // Kill confirmation prompt takes priority
     if let Some((pid, ref proc_name)) = app.kill_confirm {
         let line = Line::from(vec![
             Span::styled(
                 format!(" Kill PID {} ({})? ", pid, proc_name),
                 Style::default()
-                    .fg(Color::Yellow)
+                    .fg(theme.gauge_warn)
                     .add_modifier(Modifier::BOLD),
             ),
             Span::styled(
                 "y/n",
-                Style::default()
-                    .fg(Color::White)
-                    .add_modifier(Modifier::BOLD),
+                Style::default().fg(theme.text).add_modifier(Modifier::BOLD),
             ),
         ]);
-        let bar = Paragraph::new(line).style(Style::default().bg(Color::Red));
+        let bar = Paragraph::new(line).style(Style::default().bg(theme.gauge_crit));
         f.render_widget(bar, area);
         return;
     }
@@ -121,9 +122,9 @@ fn draw_status_bar(f: &mut Frame, app: &App, area: Rect) {
     // Show kill result message if present
     if let Some(ref msg) = app.kill_result {
         let color = if msg.starts_with("Sent") {
-            Color::Green
+            theme.gauge_low
         } else {
-            Color::Red
+            theme.gauge_crit
         };
         let bar =
             Paragraph::new(format!(" {} (press any key)", msg)).style(Style::default().fg(color));
@@ -133,6 +134,6 @@ fn draw_status_bar(f: &mut Frame, app: &App, area: Rect) {
 
     // Default status bar with keybinding hints
     let hints = " j/k:Navigate  s:Sort  K:Kill  q:Quit";
-    let footer = Paragraph::new(hints).style(Style::default().fg(Color::DarkGray));
+    let footer = Paragraph::new(hints).style(Style::default().fg(theme.text_dim));
     f.render_widget(footer, area);
 }

@@ -1,28 +1,30 @@
 use crate::app::App;
 use crate::collectors::throttle::ThrottleData;
+use crate::ui::theme::Theme;
 use crate::util::format::format_duration;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
 /// Render the board info header line.
 pub fn draw(f: &mut Frame, app: &App, area: Rect) {
+    let theme = &app.theme;
     let board_name = app.profile.name();
     let uptime = format_duration(app.uptime_seconds());
 
-    let throttle_span = throttle_indicator(&app.throttle);
+    let throttle_span = throttle_indicator(theme, &app.throttle);
 
     let line = Line::from(vec![
         Span::styled(
             format!(" {} ", board_name),
             Style::default()
-                .fg(Color::Cyan)
+                .fg(theme.border_highlight)
                 .add_modifier(Modifier::BOLD),
         ),
         Span::raw("│ "),
-        Span::styled(format!("up {}", uptime), Style::default().fg(Color::White)),
+        Span::styled(format!("up {}", uptime), Style::default().fg(theme.text)),
         Span::raw(" │ "),
         throttle_span,
     ]);
@@ -30,9 +32,9 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(Paragraph::new(line), area);
 }
 
-fn throttle_indicator(throttle: &ThrottleData) -> Span<'static> {
+fn throttle_indicator(theme: &Theme, throttle: &ThrottleData) -> Span<'static> {
     if !throttle.available {
-        return Span::styled("— Throttle: N/A", Style::default().fg(Color::DarkGray));
+        return Span::styled("— Throttle: N/A", Style::default().fg(theme.text_dim));
     }
 
     if throttle.is_any_active() {
@@ -51,7 +53,9 @@ fn throttle_indicator(throttle: &ThrottleData) -> Span<'static> {
         }
         Span::styled(
             format!("⚠ {}", flags.join(", ")),
-            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(theme.throttle_crit)
+                .add_modifier(Modifier::BOLD),
         )
     } else if throttle.has_any_occurred() {
         let mut flags = Vec::new();
@@ -69,9 +73,9 @@ fn throttle_indicator(throttle: &ThrottleData) -> Span<'static> {
         }
         Span::styled(
             format!("⚠ {} (since boot)", flags.join(", ")),
-            Style::default().fg(Color::Yellow),
+            Style::default().fg(theme.throttle_warn),
         )
     } else {
-        Span::styled("✓ No throttling", Style::default().fg(Color::Green))
+        Span::styled("✓ No throttling", Style::default().fg(theme.throttle_ok))
     }
 }

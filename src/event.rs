@@ -22,6 +22,55 @@ fn handle_key(app: &mut App, key: KeyEvent) {
         return;
     }
 
+    // Ctrl+S toggles stress test
+    if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('s') {
+        if let Some(ref mut stress) = app.stress {
+            if stress.is_running() {
+                stress.stop();
+            } else {
+                stress.start();
+            }
+        }
+        return;
+    }
+
+    // Help overlay intercepts all keys except ? and Esc
+    if app.show_help {
+        match key.code {
+            KeyCode::Char('?') | KeyCode::Esc => {
+                app.show_help = false;
+                app.help_scroll = 0;
+            }
+            KeyCode::Char('j') | KeyCode::Down => {
+                app.help_scroll = app.help_scroll.saturating_add(1);
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                app.help_scroll = app.help_scroll.saturating_sub(1);
+            }
+            _ => {}
+        }
+        return;
+    }
+
+    // Ctrl+Up / Ctrl+Down: adjust stress test workers
+    if key.modifiers.contains(KeyModifiers::CONTROL) {
+        if let Some(ref mut stress) = app.stress {
+            if stress.is_running() {
+                match key.code {
+                    KeyCode::Up => {
+                        stress.add_worker();
+                        return;
+                    }
+                    KeyCode::Down => {
+                        stress.remove_worker();
+                        return;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
     // If kill confirmation is active, only handle y/n/Esc
     if let Some((pid, _)) = &app.kill_confirm {
         let pid = *pid;
@@ -99,6 +148,14 @@ fn handle_key(app: &mut App, key: KeyEvent) {
             }
         }
 
+        // Help overlay
+        KeyCode::Char('?') => {
+            app.show_help = !app.show_help;
+        }
+
+        // Cycle color theme
+        KeyCode::Char('t') => app.cycle_theme(),
+
         _ => {}
     }
 }
@@ -107,11 +164,12 @@ fn handle_key(app: &mut App, key: KeyEvent) {
 mod tests {
     use super::*;
     use crate::board::BoardType;
+    use crate::config::Config;
     use tempfile::TempDir;
 
     fn test_app() -> App {
         let tmp = TempDir::new().unwrap();
-        App::new(BoardType::Unknown, tmp.path(), false)
+        App::new(BoardType::Unknown, tmp.path(), false, Config::default())
     }
 
     #[test]
@@ -182,5 +240,33 @@ mod tests {
 
         app.prev_tab();
         assert_eq!(app.active_tab, 5);
+    }
+
+    #[test]
+    fn pressing_t_cycles_theme() {
+        let mut app = test_app();
+        assert_eq!(app.theme_index, 0);
+        assert_eq!(app.theme_names[0], "default");
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('t'), KeyModifiers::NONE),
+        );
+        assert_eq!(app.theme_index, 1);
+        assert_eq!(app.theme_names[1], "monochrome");
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('t'), KeyModifiers::NONE),
+        );
+        assert_eq!(app.theme_index, 2);
+        assert_eq!(app.theme_names[2], "solarized");
+
+        // Wraps back to default
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('t'), KeyModifiers::NONE),
+        );
+        assert_eq!(app.theme_index, 0);
     }
 }
