@@ -1,0 +1,71 @@
+site_name: pitop
+site_url: https://wu-hongjun.github.io/pitop/
+site_description: Terminal-based system monitor for Raspberry Pi
+repo_url: https://github.com/wu-hongjun/pitop
+repo_name: wu-hongjun/pitop
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quick-start.md
+    - Configuration: getting-started/configuration.md
+  - User Guide:
+    - Overview Tab: guide/overview.md
+    - Processes Tab: guide/processes.md
+    - Power Tab: guide/power.md
+    - Network Tab: guide/network.md
+    - Disk Tab: guide/disk.md
+    - System Tab: guide/system.md
+    - Themes: guide/themes.md
+    - Stress Testing: guide/stress-testing.md
+  - Supported Hardware:
+    - Board Support: hardware/boards.md
+    - Pi-Specific Features: hardware/pi-features.md
+  - Development:
+    - Architecture: development/architecture.md
+    - Building: development/building.md
+    - Testing: development/testing.md
+    - Contributing: development/contributing.md
+  - Reference:
+    - CLI Options: reference/cli.md
+    - Keyboard Shortcuts: reference/keybindings.md
+    - Config File: reference/config-file.md
+    - Changelog: changelog.md

@@ -5,9 +5,23 @@ edition = "2021"
 authors = ["pitop contributors"]
 description = "Terminal-based system monitor for Raspberry Pi"
 license = "MIT"
+readme = "README.md"
+homepage = "https://wu-hongjun.github.io/pitop"
+documentation = "https://wu-hongjun.github.io/pitop"
 repository = "https://github.com/wu-hongjun/pitop"
 keywords = ["raspberry-pi", "tui", "monitoring", "system"]
 categories = ["command-line-utilities"]
+exclude = [
+  "bmad-artifacts/",
+  "_bmad/",
+  "_bmad-output/",
+  ".cursor/",
+  ".agents/",
+  "tests/fixtures/",
+  "docs/",
+  "scripts/",
+  ".github/",
+]
 
 [dependencies]
 # TUI
