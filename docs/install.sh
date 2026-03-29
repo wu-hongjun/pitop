@@ -1,11 +1,11 @@
 #!/bin/sh
-# pitop installer — https://wu-hongjun.github.io/pitop/install.sh
+# pitop installer — https://pitop.hongjunwu.com/install.sh
 #
 # Usage:
-#   curl -sL https://wu-hongjun.github.io/pitop/install.sh | sh
+#   curl -sL https://pitop.hongjunwu.com/install.sh | sh
 #
 # Or pin a version:
-#   curl -sL https://wu-hongjun.github.io/pitop/install.sh | PITOP_VERSION=v0.1.0 sh
+#   curl -sL https://pitop.hongjunwu.com/install.sh | PITOP_VERSION=v0.1.0 sh
 #
 # Supported platforms:
 #   - Raspberry Pi 5 / 4B / Zero 2W (64-bit OS, aarch64)

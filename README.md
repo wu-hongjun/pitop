@@ -30,7 +30,7 @@ Think `htop` meets `mactop` — purpose-built for Raspberry Pi hardware with boa
 ### One-line install (recommended)
 
 ```sh
-curl -sL https://wu-hongjun.github.io/pitop/install.sh | sh
+curl -sL https://pitop.hongjunwu.com/install.sh | sh
 ```
 
 Auto-detects your Pi model and architecture, downloads the right binary, and installs to `/usr/local/bin`. Pin a version with `PITOP_VERSION=v0.1.0`.

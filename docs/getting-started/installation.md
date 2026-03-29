@@ -3,7 +3,7 @@
 ## One-line install (recommended)
 
 ```sh
-curl -sL https://wu-hongjun.github.io/pitop/install.sh | sh
+curl -sL https://pitop.hongjunwu.com/install.sh | sh
 ```
 
 The install script auto-detects your Pi model and CPU architecture, downloads the correct binary from GitHub Releases, and installs it to `/usr/local/bin`.
@@ -11,7 +11,7 @@ The install script auto-detects your Pi model and CPU architecture, downloads th
 To pin a specific version:
 
 ```sh
-curl -sL https://wu-hongjun.github.io/pitop/install.sh | PITOP_VERSION=v0.1.0 sh
+curl -sL https://pitop.hongjunwu.com/install.sh | PITOP_VERSION=v0.1.0 sh
 ```
 
 !!! note "Supported architectures"

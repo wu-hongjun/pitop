@@ -26,7 +26,7 @@ Think `htop` meets `mactop` -- purpose-built for Raspberry Pi hardware with boar
 ## Quick install
 
 ```sh
-curl -sL https://wu-hongjun.github.io/pitop/install.sh | sh
+curl -sL https://pitop.hongjunwu.com/install.sh | sh
 ```
 
 Auto-detects your Pi model and architecture, downloads the right binary, and installs to `/usr/local/bin`.
