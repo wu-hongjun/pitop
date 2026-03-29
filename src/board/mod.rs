@@ -17,6 +17,15 @@ use std::path::Path;
 pub enum BoardType {
     Pi5,
     Pi4B,
+    Pi400,
+    CM4,
+    Pi3B,
+    Pi3BPlus,
+    Pi3A,
+    Pi2B,
+    Pi1,
+    PiZeroW,
+    PiZero,
     Zero2W,
     Unknown,
 }
@@ -65,6 +74,14 @@ pub fn detect(root: &Path) -> BoardType {
         .filter(|s| !s.is_empty())
         .collect();
 
+    // First, try to identify the specific model from the raspberrypi,* string
+    let joined = entries.join("\0");
+    let model = identify_pi_model(&joined);
+    if model != BoardType::Unknown {
+        return model;
+    }
+
+    // Fall back to SoC-only detection for unrecognized model strings
     for entry in &entries {
         if entry.contains("bcm2712") {
             return BoardType::Pi5;
@@ -72,12 +89,75 @@ pub fn detect(root: &Path) -> BoardType {
         if entry.contains("bcm2711") {
             return BoardType::Pi4B;
         }
-        // Zero 2W: firmware reports bcm2710, but some kernels report bcm2837
         if entry.contains("bcm2710") || entry.contains("bcm2837") {
-            return BoardType::Zero2W;
+            return BoardType::Zero2W; // conservative fallback
+        }
+        if entry.contains("bcm2836") {
+            return BoardType::Pi2B;
+        }
+        if entry.contains("bcm2835") {
+            return BoardType::Pi1;
         }
     }
 
+    BoardType::Unknown
+}
+
+/// Match specific Pi model from the raspberrypi,* compatible string.
+fn identify_pi_model(compatible: &str) -> BoardType {
+    // Pi 5
+    if compatible.contains("raspberrypi,5-model-b") {
+        return BoardType::Pi5;
+    }
+    // Pi 400
+    if compatible.contains("raspberrypi,400") {
+        return BoardType::Pi400;
+    }
+    // CM4
+    if compatible.contains("raspberrypi,4-compute-module") {
+        return BoardType::CM4;
+    }
+    // Pi 4B
+    if compatible.contains("raspberrypi,4-model-b") {
+        return BoardType::Pi4B;
+    }
+    // Pi 3B+
+    if compatible.contains("raspberrypi,3-model-b-plus") {
+        return BoardType::Pi3BPlus;
+    }
+    // Pi 3A+
+    if compatible.contains("raspberrypi,3-model-a-plus") {
+        return BoardType::Pi3A;
+    }
+    // Pi 3B
+    if compatible.contains("raspberrypi,3-model-b") {
+        return BoardType::Pi3B;
+    }
+    // Zero 2W
+    if compatible.contains("raspberrypi,model-zero-2-w") {
+        return BoardType::Zero2W;
+    }
+    // Pi Zero W
+    if compatible.contains("raspberrypi,model-zero-w") {
+        return BoardType::PiZeroW;
+    }
+    // Pi Zero (no wireless)
+    if compatible.contains("raspberrypi,model-zero") {
+        return BoardType::PiZero;
+    }
+    // Pi 2B
+    if compatible.contains("raspberrypi,2-model-b") {
+        return BoardType::Pi2B;
+    }
+    // Pi 1 (A+, B+, A, B)
+    if compatible.contains("raspberrypi,model-b-plus")
+        || compatible.contains("raspberrypi,model-a-plus")
+        || compatible.contains("raspberrypi,model-b-rev2")
+        || compatible.contains("raspberrypi,model-b")
+        || compatible.contains("raspberrypi,model-a")
+    {
+        return BoardType::Pi1;
+    }
     BoardType::Unknown
 }
 
@@ -86,8 +166,112 @@ pub fn create_profile(board_type: BoardType) -> Box<dyn BoardProfile> {
     match board_type {
         BoardType::Pi5 => Box::new(Pi5Profile),
         BoardType::Pi4B => Box::new(Pi4BProfile),
+        BoardType::Pi400 => Box::new(GenericPiProfile {
+            board_type: BoardType::Pi400,
+            name: "Raspberry Pi 400",
+            soc: "BCM2711",
+            has_poe: false,
+            voltage_source: VoltageSource::MeasureVolts,
+        }),
+        BoardType::CM4 => Box::new(GenericPiProfile {
+            board_type: BoardType::CM4,
+            name: "Compute Module 4",
+            soc: "BCM2711",
+            has_poe: false,
+            voltage_source: VoltageSource::MeasureVolts,
+        }),
+        BoardType::Pi3BPlus => Box::new(GenericPiProfile {
+            board_type: BoardType::Pi3BPlus,
+            name: "Raspberry Pi 3 Model B+",
+            soc: "BCM2837B0",
+            has_poe: true,
+            voltage_source: VoltageSource::MeasureVolts,
+        }),
+        BoardType::Pi3B => Box::new(GenericPiProfile {
+            board_type: BoardType::Pi3B,
+            name: "Raspberry Pi 3 Model B",
+            soc: "BCM2837",
+            has_poe: false,
+            voltage_source: VoltageSource::MeasureVolts,
+        }),
+        BoardType::Pi3A => Box::new(GenericPiProfile {
+            board_type: BoardType::Pi3A,
+            name: "Raspberry Pi 3 Model A+",
+            soc: "BCM2837B0",
+            has_poe: false,
+            voltage_source: VoltageSource::MeasureVolts,
+        }),
+        BoardType::Pi2B => Box::new(GenericPiProfile {
+            board_type: BoardType::Pi2B,
+            name: "Raspberry Pi 2 Model B",
+            soc: "BCM2836/BCM2837",
+            has_poe: false,
+            voltage_source: VoltageSource::MeasureVolts,
+        }),
         BoardType::Zero2W => Box::new(Zero2WProfile),
+        BoardType::PiZeroW => Box::new(GenericPiProfile {
+            board_type: BoardType::PiZeroW,
+            name: "Raspberry Pi Zero W",
+            soc: "BCM2835",
+            has_poe: false,
+            voltage_source: VoltageSource::MeasureVolts,
+        }),
+        BoardType::PiZero => Box::new(GenericPiProfile {
+            board_type: BoardType::PiZero,
+            name: "Raspberry Pi Zero",
+            soc: "BCM2835",
+            has_poe: false,
+            voltage_source: VoltageSource::MeasureVolts,
+        }),
+        BoardType::Pi1 => Box::new(GenericPiProfile {
+            board_type: BoardType::Pi1,
+            name: "Raspberry Pi 1",
+            soc: "BCM2835",
+            has_poe: false,
+            voltage_source: VoltageSource::MeasureVolts,
+        }),
         BoardType::Unknown => Box::new(UnknownProfile),
+    }
+}
+
+/// Generic profile for Pi models that don't need a dedicated profile file.
+/// Covers Pi 1, Pi 2, Pi 3, Pi 400, CM4, Pi Zero, Pi Zero W.
+#[derive(Debug)]
+struct GenericPiProfile {
+    board_type: BoardType,
+    name: &'static str,
+    soc: &'static str,
+    has_poe: bool,
+    voltage_source: VoltageSource,
+}
+
+impl BoardProfile for GenericPiProfile {
+    fn board_type(&self) -> BoardType {
+        self.board_type
+    }
+    fn name(&self) -> &str {
+        self.name
+    }
+    fn soc_name(&self) -> &str {
+        self.soc
+    }
+    fn has_pmic(&self) -> bool {
+        false
+    }
+    fn has_fan(&self) -> bool {
+        false
+    }
+    fn has_pcie(&self) -> bool {
+        false
+    }
+    fn has_poe(&self) -> bool {
+        self.has_poe
+    }
+    fn thermal_zones(&self) -> &[&str] {
+        &["soc"]
+    }
+    fn voltage_source(&self) -> VoltageSource {
+        self.voltage_source
     }
 }
 
@@ -255,9 +439,21 @@ pub fn parse_board_override(s: &str) -> Result<BoardType> {
     match s.to_lowercase().as_str() {
         "pi5" => Ok(BoardType::Pi5),
         "pi4b" | "pi4" => Ok(BoardType::Pi4B),
+        "pi400" => Ok(BoardType::Pi400),
+        "cm4" => Ok(BoardType::CM4),
+        "pi3b+" | "pi3bplus" => Ok(BoardType::Pi3BPlus),
+        "pi3b" | "pi3" => Ok(BoardType::Pi3B),
+        "pi3a" | "pi3a+" => Ok(BoardType::Pi3A),
+        "pi2b" | "pi2" => Ok(BoardType::Pi2B),
+        "pi1" => Ok(BoardType::Pi1),
+        "zerow" | "pi0w" => Ok(BoardType::PiZeroW),
+        "zero" | "pi0" => Ok(BoardType::PiZero),
         "zero2w" | "zero2" => Ok(BoardType::Zero2W),
-        "auto" => Ok(BoardType::Unknown), // Will be re-detected
-        _ => anyhow::bail!("Unknown board type: '{}'. Use: pi5, pi4b, zero2w, auto", s),
+        "auto" => Ok(BoardType::Unknown),
+        _ => anyhow::bail!(
+            "Unknown board type: '{}'. Use: pi5, pi4b, pi400, cm4, pi3b, pi3b+, pi3a, pi2b, pi1, zero2w, zerow, zero, auto",
+            s
+        ),
     }
 }
 
@@ -393,7 +589,7 @@ mod tests {
 
     #[test]
     fn parse_board_override_invalid() {
-        assert!(parse_board_override("pi3").is_err());
+        assert!(parse_board_override("pi99").is_err());
     }
 
     #[test]

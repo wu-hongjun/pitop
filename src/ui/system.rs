@@ -43,12 +43,7 @@ fn draw_board_section(f: &mut Frame, app: &App, area: Rect) {
         app.system_info.model_name.clone()
     };
 
-    let board_type = match app.profile.board_type() {
-        crate::board::BoardType::Pi5 => "Raspberry Pi 5",
-        crate::board::BoardType::Pi4B => "Raspberry Pi 4 Model B",
-        crate::board::BoardType::Zero2W => "Raspberry Pi Zero 2 W",
-        crate::board::BoardType::Unknown => "Unknown",
-    };
+    let board_type = app.profile.name();
 
     let lines = vec![
         info_line(app, "Model", &model),
