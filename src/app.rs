@@ -16,6 +16,7 @@ use crate::config::Config;
 use crate::stress::StressTest;
 use crate::ui::theme::Theme;
 use crate::util::ring_buffer::RingBuffer;
+use crate::util::update_check::UpdateHandle;
 use crate::util::vcgencmd::VcgencmdRunner;
 use anyhow::Result;
 use std::collections::HashMap;
@@ -79,6 +80,7 @@ pub struct App {
     pub show_help: bool,
     pub help_scroll: usize,
     pub stress: Option<StressTest>,
+    pub update_status: Option<UpdateHandle>,
 
     // Collectors (owned)
     cpu_collector: CpuCollector,
@@ -148,6 +150,7 @@ impl App {
             show_help: false,
             help_scroll: 0,
             stress: None,
+            update_status: None,
             cpu_collector: CpuCollector::new(root),
             memory_collector: MemoryCollector::new(root),
             thermal_collector: ThermalCollector::new(root),

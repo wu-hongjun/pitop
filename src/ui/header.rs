@@ -2,6 +2,7 @@ use crate::app::App;
 use crate::collectors::throttle::ThrottleData;
 use crate::ui::theme::Theme;
 use crate::util::format::format_duration;
+use crate::util::update_check::UpdateStatus;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -16,7 +17,7 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
 
     let throttle_span = throttle_indicator(theme, &app.throttle);
 
-    let line = Line::from(vec![
+    let mut spans = vec![
         Span::styled(
             format!(" {} ", board_name),
             Style::default()
@@ -27,9 +28,24 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
         Span::styled(format!("up {}", uptime), Style::default().fg(theme.text)),
         Span::raw(" │ "),
         throttle_span,
-    ]);
+    ];
 
-    f.render_widget(Paragraph::new(line), area);
+    // Show update notice if a newer version is available
+    if let Some(ref handle) = app.update_status {
+        if let Ok(guard) = handle.try_lock() {
+            if let UpdateStatus::Available(ref ver) = *guard {
+                spans.push(Span::raw(" │ "));
+                spans.push(Span::styled(
+                    format!("Update v{} available", ver),
+                    Style::default()
+                        .fg(theme.gauge_warn)
+                        .add_modifier(Modifier::BOLD),
+                ));
+            }
+        }
+    }
+
+    f.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 
 fn throttle_indicator(theme: &Theme, throttle: &ThrottleData) -> Span<'static> {

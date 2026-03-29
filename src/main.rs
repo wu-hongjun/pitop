@@ -145,6 +145,9 @@ async fn main() -> Result<()> {
     // Set starting tab (convert 1-based to 0-based index)
     app.set_tab(tab.saturating_sub(1) as usize);
 
+    // Spawn background update check (non-blocking, fails silently)
+    app.update_status = Some(util::update_check::spawn_check());
+
     let tick_rate = Duration::from_millis(interval);
 
     // Start stress test if requested
