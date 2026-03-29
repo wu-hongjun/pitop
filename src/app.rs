@@ -302,13 +302,37 @@ impl App {
         // Tab-dependent collectors (lazy refresh)
         match self.active_tab {
             0 => {
-                // Overview shows process list and disk info
+                // Overview shows process list, disk, and power info
                 log_err(
                     verbose,
                     "process",
                     self.process_collector.collect(&mut self.processes),
                 );
                 log_err(verbose, "disk", self.disk_collector.collect(&mut self.disk));
+                // Collect power data for overview info panel
+                match self.profile.voltage_source() {
+                    VoltageSource::Pmic => {
+                        if let Some(output) = self.vcgencmd.run(&["pmic_read_adc"]).await {
+                            self.power.pmic = Some(power::parse_pmic_read_adc(&output));
+                        }
+                        if let Some(ref pmic) = self.power.pmic {
+                            self.power_history.push(pmic.estimated_real_watts);
+                        }
+                    }
+                    VoltageSource::MeasureVolts => {
+                        let mut voltages = Vec::new();
+                        for rail in &["core", "sdram_c", "sdram_i", "sdram_p"] {
+                            if let Some(output) = self.vcgencmd.run(&["measure_volts", rail]).await
+                            {
+                                if let Some(reading) = power::parse_measure_volts(rail, &output) {
+                                    voltages.push(reading);
+                                }
+                            }
+                        }
+                        self.power.voltages = voltages;
+                    }
+                    VoltageSource::None => {}
+                }
             }
             1 => {
                 log_err(
