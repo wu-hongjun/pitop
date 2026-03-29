@@ -179,6 +179,54 @@ fn read_cpu_model(root: &Path) -> String {
         }
     }
 
+    // Fall back to ARM CPU part number (aarch64 has no model name)
+    let mut implementer = "";
+    let mut part = "";
+    for line in content.lines() {
+        if line.starts_with("CPU implementer") {
+            if let Some(v) = line.split(':').nth(1) {
+                implementer = v.trim();
+            }
+        }
+        if line.starts_with("CPU part") {
+            if let Some(v) = line.split(':').nth(1) {
+                part = v.trim();
+            }
+        }
+        if !implementer.is_empty() && !part.is_empty() {
+            break;
+        }
+    }
+
+    if implementer == "0x41" {
+        // ARM Ltd
+        match part {
+            "0xd03" => return "ARM Cortex-A53".to_string(),
+            "0xd04" => return "ARM Cortex-A35".to_string(),
+            "0xd05" => return "ARM Cortex-A55".to_string(),
+            "0xd07" => return "ARM Cortex-A57".to_string(),
+            "0xd08" => return "ARM Cortex-A72".to_string(),
+            "0xd09" => return "ARM Cortex-A73".to_string(),
+            "0xd0a" => return "ARM Cortex-A75".to_string(),
+            "0xd0b" => return "ARM Cortex-A76".to_string(),
+            "0xd0c" => return "ARM Neoverse-N1".to_string(),
+            "0xd0d" => return "ARM Cortex-A77".to_string(),
+            "0xd40" => return "ARM Neoverse-V1".to_string(),
+            "0xd41" => return "ARM Cortex-A78".to_string(),
+            "0xd44" => return "ARM Cortex-X1".to_string(),
+            "0xd46" => return "ARM Cortex-A510".to_string(),
+            "0xd47" => return "ARM Cortex-A710".to_string(),
+            "0xd48" => return "ARM Cortex-X2".to_string(),
+            "0xd4d" => return "ARM Cortex-A715".to_string(),
+            "0xd4e" => return "ARM Cortex-X3".to_string(),
+            _ => {}
+        }
+    }
+
+    if !implementer.is_empty() && !part.is_empty() {
+        return format!("ARM (impl={}, part={})", implementer, part);
+    }
+
     String::new()
 }
 
