@@ -72,7 +72,8 @@ pub fn detect(root: &Path) -> BoardType {
         if entry.contains("bcm2711") {
             return BoardType::Pi4B;
         }
-        if entry.contains("bcm2710") {
+        // Zero 2W: firmware reports bcm2710, but some kernels report bcm2837
+        if entry.contains("bcm2710") || entry.contains("bcm2837") {
             return BoardType::Zero2W;
         }
     }
@@ -246,6 +247,16 @@ mod tests {
     fn detect_zero2w() {
         let tmp = TempDir::new().unwrap();
         let content = b"raspberrypi,model-zero-2-w\0brcm,bcm2710\0";
+        create_fixture(tmp.path(), "proc/device-tree/compatible", content);
+
+        assert_eq!(detect(tmp.path()), BoardType::Zero2W);
+    }
+
+    #[test]
+    fn detect_zero2w_bcm2837() {
+        // Some kernels report bcm2837 instead of bcm2710 for Zero 2W
+        let tmp = TempDir::new().unwrap();
+        let content = b"raspberrypi,model-zero-2-w\0brcm,bcm2837\0";
         create_fixture(tmp.path(), "proc/device-tree/compatible", content);
 
         assert_eq!(detect(tmp.path()), BoardType::Zero2W);
