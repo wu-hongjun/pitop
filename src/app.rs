@@ -301,7 +301,15 @@ impl App {
 
         // Tab-dependent collectors (lazy refresh)
         match self.active_tab {
-            0 => { /* overview: covered by always-on */ }
+            0 => {
+                // Overview shows process list and disk info
+                log_err(
+                    verbose,
+                    "process",
+                    self.process_collector.collect(&mut self.processes),
+                );
+                log_err(verbose, "disk", self.disk_collector.collect(&mut self.disk));
+            }
             1 => {
                 log_err(
                     verbose,
