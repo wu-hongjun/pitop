@@ -425,34 +425,60 @@ fn draw_info_disk(f: &mut Frame, app: &App, area: Rect) {
     let inner = block.inner(area);
     f.render_widget(block, area);
 
+    let max_lines = inner.height as usize;
     let mut lines: Vec<Line> = Vec::new();
 
-    for part in app.disk.partitions.iter().take(2) {
+    // Show root partition (or first) with name on one line, usage on next
+    let root_part = app
+        .disk
+        .partitions
+        .iter()
+        .find(|p| p.mountpoint == "/")
+        .or_else(|| app.disk.partitions.first());
+
+    if let Some(part) = root_part {
+        let dev_name = part.device.strip_prefix("/dev/").unwrap_or(&part.device);
         let color = percent_color(theme, part.usage_percent, 70.0, 90.0);
+
+        // Line 1: device name + mountpoint
+        lines.push(Line::from(vec![
+            Span::styled(
+                format!("{} ", dev_name),
+                Style::default().fg(theme.text).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                format!("({})", part.mountpoint),
+                Style::default().fg(theme.text_dim),
+            ),
+        ]));
+
+        // Line 2: used / total (percent)
         lines.push(Line::from(Span::styled(
             format!(
-                "{}: {}/{} ({:.0}% free)",
-                part.device,
+                "{}/{} ({:.0}% used)",
                 format_bytes(part.used_bytes),
                 format_bytes(part.total_bytes),
-                100.0 - part.usage_percent
+                part.usage_percent
             ),
             Style::default().fg(color),
         )));
     }
 
-    if let Some(io) = app.disk.io_stats.first() {
-        lines.push(Line::from(vec![
-            Span::styled("I/O: ", Style::default().fg(theme.text_dim)),
-            Span::styled(
-                format!(
-                    "R {} W {}",
-                    format_bytes_per_sec(io.read_bytes_per_sec),
-                    format_bytes_per_sec(io.write_bytes_per_sec),
+    // Line 3: I/O throughput
+    if lines.len() < max_lines {
+        if let Some(io) = app.disk.io_stats.first() {
+            lines.push(Line::from(vec![
+                Span::styled("I/O: ", Style::default().fg(theme.text_dim)),
+                Span::styled(
+                    format!(
+                        "R {} W {}",
+                        format_bytes_per_sec(io.read_bytes_per_sec),
+                        format_bytes_per_sec(io.write_bytes_per_sec),
+                    ),
+                    Style::default().fg(theme.text),
                 ),
-                Style::default().fg(theme.text),
-            ),
-        ]));
+            ]));
+        }
     }
 
     if lines.is_empty() {
