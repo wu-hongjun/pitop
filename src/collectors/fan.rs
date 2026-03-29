@@ -16,7 +16,9 @@ pub struct FanCollector {
 
 impl FanCollector {
     pub fn new(root: &Path) -> Self {
-        let hwmon_path = crate::util::sysfs::discover_hwmon(root, "cooling_fan");
+        // Pi 5 official fan reports as "pwmfan", some older setups use "cooling_fan"
+        let hwmon_path = crate::util::sysfs::discover_hwmon(root, "pwmfan")
+            .or_else(|| crate::util::sysfs::discover_hwmon(root, "cooling_fan"));
         Self { hwmon_path }
     }
 
@@ -196,5 +198,23 @@ mod tests {
         assert_eq!(data.rpm, 2200);
         assert_eq!(data.pwm_raw, 64);
         assert!((data.pwm_percent - 25.098).abs() < 0.1);
+    }
+
+    #[test]
+    fn discovers_pwmfan_name() {
+        // Pi 5 official fan reports as "pwmfan" not "cooling_fan"
+        let tmp = TempDir::new().unwrap();
+        write_fixture(tmp.path(), "sys/class/hwmon/hwmon0/name", "cpu_thermal\n");
+        write_fixture(tmp.path(), "sys/class/hwmon/hwmon3/name", "pwmfan\n");
+        write_fixture(tmp.path(), "sys/class/hwmon/hwmon3/fan1_input", "3960\n");
+        write_fixture(tmp.path(), "sys/class/hwmon/hwmon3/pwm1", "75\n");
+
+        let collector = FanCollector::new(tmp.path());
+        let mut data = FanData::default();
+        collector.collect(&mut data).unwrap();
+
+        assert!(data.available);
+        assert_eq!(data.rpm, 3960);
+        assert_eq!(data.pwm_raw, 75);
     }
 }
