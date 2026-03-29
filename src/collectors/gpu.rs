@@ -3,10 +3,12 @@ use serde::Serialize;
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct GpuData {
     pub available: bool,
-    pub frequency_mhz: u64,          // GPU core clock in MHz
-    pub memory_mb: u64,              // GPU memory allocation in MB
-    pub temperature_celsius: f64,    // GPU temp
-    pub codecs: Vec<(String, bool)>, // (codec_name, enabled)
+    pub frequency_mhz: u64,            // GPU core clock in MHz
+    pub memory_mb: u64,                // GPU memory allocation in MB
+    pub temperature_celsius: f64,      // GPU temp
+    pub codecs: Vec<(String, bool)>,   // (codec_name, enabled)
+    pub video_decoder: Option<String>, // Hardware decoder description (Pi 5: BCM2712 HEVC)
+    pub shared_memory: bool,           // True when GPU uses shared system memory (Pi 5)
 }
 
 /// Parse `vcgencmd measure_clock core` output.
@@ -162,6 +164,8 @@ mod tests {
         assert_eq!(data.memory_mb, 0);
         assert!((data.temperature_celsius - 0.0).abs() < f64::EPSILON);
         assert!(data.codecs.is_empty());
+        assert!(data.video_decoder.is_none());
+        assert!(!data.shared_memory);
     }
 
     #[test]

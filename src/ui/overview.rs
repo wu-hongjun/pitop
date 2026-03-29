@@ -280,7 +280,9 @@ fn draw_gpu_gauge(f: &mut Frame, app: &App, area: Rect) {
 
         // Determine how many detail lines we need
         let has_codecs = !app.gpu.codecs.is_empty();
-        let detail_lines: u16 = if has_codecs { 2 } else { 1 };
+        let has_video_decoder = app.gpu.video_decoder.is_some();
+        let has_second_line = has_codecs || has_video_decoder;
+        let detail_lines: u16 = if has_second_line { 2 } else { 1 };
 
         let rows = Layout::default()
             .direction(Direction::Vertical)
@@ -296,7 +298,7 @@ fn draw_gpu_gauge(f: &mut Frame, app: &App, area: Rect) {
         // Detail area
         let detail_rows = Layout::default()
             .direction(Direction::Vertical)
-            .constraints(if has_codecs {
+            .constraints(if has_second_line {
                 vec![Constraint::Length(1), Constraint::Length(1)]
             } else {
                 vec![Constraint::Length(1)]
@@ -304,11 +306,13 @@ fn draw_gpu_gauge(f: &mut Frame, app: &App, area: Rect) {
             .split(rows[1]);
 
         // Line 1: memory + temp
+        let mem_text = if app.gpu.shared_memory {
+            format!("{} MHz / Shared", freq)
+        } else {
+            format!("{} MHz / {} MB", freq, app.gpu.memory_mb)
+        };
         let info_line = Line::from(vec![
-            Span::styled(
-                format!("{} MHz / {} MB", freq, app.gpu.memory_mb),
-                Style::default().fg(theme.text),
-            ),
+            Span::styled(mem_text, Style::default().fg(theme.text)),
             Span::styled("  ", Style::default()),
             Span::styled(
                 format!("Temp: {}", format_temp(app.gpu.temperature_celsius)),
@@ -317,24 +321,33 @@ fn draw_gpu_gauge(f: &mut Frame, app: &App, area: Rect) {
         ]);
         f.render_widget(Paragraph::new(info_line), detail_rows[0]);
 
-        // Line 2: codecs (if available)
-        if has_codecs && detail_rows.len() > 1 {
-            let mut codec_spans: Vec<Span> = Vec::new();
-            for (i, (name, enabled)) in app.gpu.codecs.iter().enumerate() {
-                if i > 0 {
-                    codec_spans.push(Span::raw("  "));
+        // Line 2: video decoder info or codecs
+        if has_second_line && detail_rows.len() > 1 {
+            if let Some(ref decoder) = app.gpu.video_decoder {
+                // Pi 5: show hardware decoder description instead of codec X marks
+                let decoder_line = Line::from(vec![
+                    Span::styled("Video: ", Style::default().fg(theme.text_dim)),
+                    Span::styled(decoder.clone(), Style::default().fg(theme.gauge_low)),
+                ]);
+                f.render_widget(Paragraph::new(decoder_line), detail_rows[1]);
+            } else if has_codecs {
+                let mut codec_spans: Vec<Span> = Vec::new();
+                for (i, (name, enabled)) in app.gpu.codecs.iter().enumerate() {
+                    if i > 0 {
+                        codec_spans.push(Span::raw("  "));
+                    }
+                    let (symbol, c) = if *enabled {
+                        ("\u{2713}", theme.gauge_low)
+                    } else {
+                        ("\u{2717}", theme.text_dim)
+                    };
+                    codec_spans.push(Span::styled(
+                        format!("{}: {}", name, symbol),
+                        Style::default().fg(c),
+                    ));
                 }
-                let (symbol, c) = if *enabled {
-                    ("\u{2713}", theme.gauge_low)
-                } else {
-                    ("\u{2717}", theme.text_dim)
-                };
-                codec_spans.push(Span::styled(
-                    format!("{}: {}", name, symbol),
-                    Style::default().fg(c),
-                ));
+                f.render_widget(Paragraph::new(Line::from(codec_spans)), detail_rows[1]);
             }
-            f.render_widget(Paragraph::new(Line::from(codec_spans)), detail_rows[1]);
         }
     } else {
         // GPU unavailable -- show load averages instead
@@ -436,18 +449,29 @@ fn draw_info_thermal(f: &mut Frame, app: &App, area: Rect) {
         ),
     ]));
 
-    // Extra thermal zones (skip cpu-like ones, take first one that fits)
-    for zone in app
-        .thermal
-        .zones
-        .iter()
-        .filter(|z| !z.zone_name.contains("cpu"))
-        .take(1)
-    {
-        lines.push(Line::from(vec![Span::styled(
-            format!("{}: {}", zone.zone_name, format_temp(zone.temp_celsius)),
-            Style::default().fg(theme.text),
-        )]));
+    // NVMe temperature if available
+    if let Some(nvme_temp) = app.thermal.nvme_temp_celsius {
+        lines.push(Line::from(vec![
+            Span::styled("NVMe: ", Style::default().fg(theme.text_dim)),
+            Span::styled(
+                format_temp(nvme_temp),
+                Style::default().fg(temp_color(theme, nvme_temp)),
+            ),
+        ]));
+    } else {
+        // Extra thermal zones (skip cpu-like ones, take first one that fits)
+        for zone in app
+            .thermal
+            .zones
+            .iter()
+            .filter(|z| !z.zone_name.contains("cpu"))
+            .take(1)
+        {
+            lines.push(Line::from(vec![Span::styled(
+                format!("{}: {}", zone.zone_name, format_temp(zone.temp_celsius)),
+                Style::default().fg(theme.text),
+            )]));
+        }
     }
 
     // Load average

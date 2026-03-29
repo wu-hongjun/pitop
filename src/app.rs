@@ -197,12 +197,25 @@ impl App {
         // GPU monitoring via vcgencmd (always-on for overview display)
         {
             let mut gpu_available = false;
-            if let Some(output) = self.vcgencmd.run(&["measure_clock", "core"]).await {
+
+            // Try V3D clock first (more relevant on Pi 5), fall back to core clock
+            let mut got_freq = false;
+            if let Some(output) = self.vcgencmd.run(&["measure_clock", "v3d"]).await {
                 if let Some(freq) = gpu::parse_clock_core(&output) {
                     self.gpu.frequency_mhz = freq;
                     gpu_available = true;
+                    got_freq = true;
                 }
             }
+            if !got_freq {
+                if let Some(output) = self.vcgencmd.run(&["measure_clock", "core"]).await {
+                    if let Some(freq) = gpu::parse_clock_core(&output) {
+                        self.gpu.frequency_mhz = freq;
+                        gpu_available = true;
+                    }
+                }
+            }
+
             if let Some(output) = self.vcgencmd.run(&["get_mem", "gpu"]).await {
                 if let Some(mem) = gpu::parse_get_mem_gpu(&output) {
                     self.gpu.memory_mb = mem;
@@ -226,6 +239,24 @@ impl App {
             }
             if !codecs.is_empty() {
                 self.gpu.codecs = codecs;
+            }
+
+            // Pi 5 codec fixup: all codecs report "disabled" because BCM2712 uses
+            // a dedicated hardware HEVC decoder, not the old VideoCore codec block.
+            let is_pi5 = self.profile.board_type() == BoardType::Pi5;
+            if is_pi5 {
+                let all_disabled = !self.gpu.codecs.is_empty()
+                    && self.gpu.codecs.iter().all(|(_, enabled)| !enabled);
+                if all_disabled {
+                    self.gpu.video_decoder = Some("Hardware HEVC (BCM2712)".to_string());
+                    self.gpu.codecs.clear();
+                }
+            }
+
+            // Pi 5 shared memory fixup: vcgencmd reports 4M because GPU uses
+            // shared system memory, not a dedicated allocation.
+            if is_pi5 && self.gpu.memory_mb <= 4 {
+                self.gpu.shared_memory = true;
             }
 
             self.gpu.available = gpu_available;

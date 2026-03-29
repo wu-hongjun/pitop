@@ -12,6 +12,7 @@ pub struct ThermalReading {
 pub struct ThermalData {
     pub zones: Vec<ThermalReading>,
     pub soc_temp_celsius: f64,
+    pub nvme_temp_celsius: Option<f64>,
 }
 
 pub struct ThermalCollector {
@@ -28,11 +29,16 @@ impl ThermalCollector {
     pub fn collect(&self, data: &mut ThermalData) -> Result<()> {
         data.zones.clear();
         data.soc_temp_celsius = 0.0;
+        data.nvme_temp_celsius = None;
 
         let thermal_dir = self.root.join("sys/class/thermal");
         let entries = match std::fs::read_dir(&thermal_dir) {
             Ok(e) => e,
-            Err(_) => return Ok(()), // No thermal zones available
+            Err(_) => {
+                // No thermal zones; still try NVMe hwmon below
+                self.collect_nvme_temp(data);
+                return Ok(());
+            }
         };
 
         for entry in entries.flatten() {
@@ -65,7 +71,22 @@ impl ThermalCollector {
             });
         }
 
+        // Scan hwmon for NVMe temperature
+        self.collect_nvme_temp(data);
+
         Ok(())
+    }
+
+    /// Scan hwmon devices for an NVMe drive and read its temperature.
+    fn collect_nvme_temp(&self, data: &mut ThermalData) {
+        if let Some(hwmon_path) = crate::util::sysfs::discover_hwmon(&self.root, "nvme") {
+            let temp_millideg = std::fs::read_to_string(hwmon_path.join("temp1_input"))
+                .ok()
+                .and_then(|s| s.trim().parse::<i64>().ok());
+            if let Some(millideg) = temp_millideg {
+                data.nvme_temp_celsius = Some(millideg as f64 / 1000.0);
+            }
+        }
     }
 }
 
@@ -111,5 +132,54 @@ mod tests {
         let mut data = ThermalData::default();
         collector.collect(&mut data).unwrap();
         assert!(data.zones.is_empty());
+        assert!(data.nvme_temp_celsius.is_none());
+    }
+
+    #[test]
+    fn reads_nvme_temp_from_hwmon() {
+        let tmp = TempDir::new().unwrap();
+        write_fixture(
+            tmp.path(),
+            "sys/class/thermal/thermal_zone0/type",
+            "cpu-thermal\n",
+        );
+        write_fixture(
+            tmp.path(),
+            "sys/class/thermal/thermal_zone0/temp",
+            "52300\n",
+        );
+        // NVMe hwmon device
+        write_fixture(tmp.path(), "sys/class/hwmon/hwmon1/name", "nvme\n");
+        write_fixture(tmp.path(), "sys/class/hwmon/hwmon1/temp1_input", "57850\n");
+
+        let collector = ThermalCollector::new(tmp.path());
+        let mut data = ThermalData::default();
+        collector.collect(&mut data).unwrap();
+
+        assert!(data.nvme_temp_celsius.is_some());
+        assert!((data.nvme_temp_celsius.unwrap_or(0.0) - 57.85).abs() < 0.01);
+    }
+
+    #[test]
+    fn nvme_temp_none_when_no_hwmon() {
+        let tmp = TempDir::new().unwrap();
+        write_fixture(
+            tmp.path(),
+            "sys/class/thermal/thermal_zone0/type",
+            "cpu-thermal\n",
+        );
+        write_fixture(
+            tmp.path(),
+            "sys/class/thermal/thermal_zone0/temp",
+            "52300\n",
+        );
+        // No nvme hwmon device
+        write_fixture(tmp.path(), "sys/class/hwmon/hwmon0/name", "cpu_thermal\n");
+
+        let collector = ThermalCollector::new(tmp.path());
+        let mut data = ThermalData::default();
+        collector.collect(&mut data).unwrap();
+
+        assert!(data.nvme_temp_celsius.is_none());
     }
 }
