@@ -99,11 +99,12 @@ impl PcieCollector {
 
             let gen_label = speed_to_gen(&current_speed).to_string();
 
-            // Detect downgrade: current speed < max speed or current width < max width
+            // Detect downgrade: only flag when link speed is degraded.
+            // Width mismatches (e.g. x4 device in x1 slot) are normal physical
+            // constraints, not degradation — Pi 5's M.2 slot is x1 by design.
             let current_gts = parse_gts(&current_speed).unwrap_or(0.0);
             let max_gts = parse_gts(&max_speed).unwrap_or(0.0);
-            let downgraded = (current_gts > 0.0 && max_gts > 0.0 && current_gts < max_gts)
-                || (current_width > 0 && max_width > 0 && current_width < max_width);
+            let downgraded = current_gts > 0.0 && max_gts > 0.0 && current_gts < max_gts;
 
             data.devices.push(PcieDevice {
                 address,
@@ -179,8 +180,9 @@ mod tests {
         assert_eq!(dev.max_speed, "8.0 GT/s");
         assert_eq!(dev.max_width, 4);
         assert_eq!(dev.gen_label, "Gen 3");
-        // Width downgraded: current 1 < max 4
-        assert!(dev.downgraded);
+        // Speed matches (8.0 GT/s = 8.0 GT/s), so not downgraded.
+        // Width mismatch (1 < 4) is a physical slot limitation, not degradation.
+        assert!(!dev.downgraded);
     }
 
     #[test]

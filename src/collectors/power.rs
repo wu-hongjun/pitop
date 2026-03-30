@@ -60,14 +60,18 @@ pub fn parse_pmic_read_adc(output: &str) -> PmicData {
             continue;
         };
 
+        // The key may be "RAIL_V" (simple) or "RAIL_A current(N)" (Pi 5 format).
+        // Extract just the rail identifier (first whitespace-delimited token).
+        let rail_id = key.trim().split_whitespace().next().unwrap_or("");
+
         // Determine whether this is a voltage (_V suffix) or current (_A suffix) reading.
-        if let Some(rail_name) = key.strip_suffix("_V") {
+        if let Some(rail_name) = rail_id.strip_suffix("_V") {
             let v = parse_numeric_with_unit(raw_value);
             if !voltages.contains_key(rail_name) && !currents.contains_key(rail_name) {
                 rail_names_ordered.push(rail_name.to_string());
             }
             voltages.insert(rail_name.to_string(), v);
-        } else if let Some(rail_name) = key.strip_suffix("_A") {
+        } else if let Some(rail_name) = rail_id.strip_suffix("_A") {
             let a = parse_numeric_with_unit(raw_value);
             if !voltages.contains_key(rail_name) && !currents.contains_key(rail_name) {
                 rail_names_ordered.push(rail_name.to_string());

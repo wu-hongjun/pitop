@@ -118,29 +118,29 @@ fn handle_key(app: &mut App, key: KeyEvent) {
         // Pause/resume
         KeyCode::Char(' ') => app.toggle_pause(),
 
-        // Process table navigation (only on Processes tab)
+        // Process table navigation (Overview and Processes tabs)
         KeyCode::Char('j') | KeyCode::Down => {
-            if app.active_tab == 1 && !app.processes.is_empty() {
+            if (app.active_tab == 0 || app.active_tab == 1) && !app.processes.is_empty() {
                 app.process_selected =
                     (app.process_selected + 1).min(app.processes.len().saturating_sub(1));
             }
         }
         KeyCode::Char('k') | KeyCode::Up => {
-            if app.active_tab == 1 {
+            if app.active_tab == 0 || app.active_tab == 1 {
                 app.process_selected = app.process_selected.saturating_sub(1);
             }
         }
 
-        // Sort column cycling (Processes tab)
+        // Sort column cycling (Overview and Processes tabs)
         KeyCode::Char('s') => {
-            if app.active_tab == 1 {
+            if app.active_tab == 0 || app.active_tab == 1 {
                 app.process_sort_column = (app.process_sort_column + 1) % 5;
             }
         }
 
-        // Kill process (Processes tab, uppercase K)
+        // Kill process (Overview and Processes tabs, uppercase K)
         KeyCode::Char('K') => {
-            if app.active_tab == 1 && !app.processes.is_empty() {
+            if (app.active_tab == 0 || app.active_tab == 1) && !app.processes.is_empty() {
                 let sorted = app.sorted_processes();
                 if let Some(proc) = sorted.get(app.process_selected) {
                     app.kill_confirm = Some((proc.pid, proc.name.clone()));

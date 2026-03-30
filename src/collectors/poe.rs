@@ -52,12 +52,19 @@ impl PoeCollector {
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_default();
 
-        // Read online status: "1" means PoE is actively powering
-        data.online = std::fs::read_to_string(poe_path.join("online"))
+        // Read online status: "1" means PoE is actively powering.
+        // On Pi 5, the "online" file returns EINVAL — if the PoE device exists
+        // and type is "Mains", we infer it's online (you can't have the device
+        // without PoE power actually being supplied).
+        let online_read = std::fs::read_to_string(poe_path.join("online"))
             .ok()
             .and_then(|s| s.trim().parse::<u8>().ok())
-            .map(|v| v == 1)
-            .unwrap_or(false);
+            .map(|v| v == 1);
+        let poe_type = std::fs::read_to_string(poe_path.join("type"))
+            .ok()
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default();
+        data.online = online_read.unwrap_or(poe_type == "Mains");
 
         // Read current_now in microamps, convert to Amps
         data.current_amps = std::fs::read_to_string(poe_path.join("current_now"))
