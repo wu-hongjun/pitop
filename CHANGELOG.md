@@ -2,6 +2,15 @@
 
 All notable changes to pitop will be documented in this file.
 
+## [0.2.0] - 2026-03-30
+
+### Bug Fixes
+- Added MJPG to codec query list (was missing on Zero 2W where MJPG=enabled)
+
+### Verified
+- Full 33-point audit passed on Pi 5 16GB (33/33)
+- Full 33-point audit passed on Zero 2W (33/33 after MJPG fix)
+
 ## [0.1.12] - 2026-03-29
 
 ### UI

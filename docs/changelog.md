@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.2.0
+
+### Bug Fixes
+- Added MJPG to codec query list (was missing on Zero 2W where MJPG=enabled)
+
+### Verified
+- Full 33-point hardware audit passed on Pi 5 16GB (33/33)
+- Full 33-point hardware audit passed on Zero 2W (33/33 after MJPG fix)
+
+---
+
 ## v0.1.12
 
 ### UI
