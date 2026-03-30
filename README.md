@@ -6,24 +6,36 @@ Think `htop` meets `mactop` — purpose-built for Raspberry Pi hardware with boa
 
 ## Features
 
-- **Overview dashboard** with CPU gauges, memory, temperature, network throughput, and sparkline history
-- **Process manager** with sortable table and kill support
+- **Overview dashboard** in mactop-style layout with gauge blocks, info panels, and embedded process list
+- **Automatic update checker** on startup with install command in footer
+- **Process manager** with sortable table and kill support (works on Overview tab too)
 - **Power monitoring** — Pi 5 PMIC rails with per-rail voltage/current/wattage, Pi 4B voltage readings
 - **Fan speed** display (Pi 5 with official fan)
 - **PCIe link status** with generation and downgrade detection (Pi 5)
 - **PoE HAT** status and current draw (Pi 5, Pi 4B)
-- **Network interfaces** with throughput sparklines, IPv6, MAC addresses
+- **Network interfaces** with throughput rates, IPv6, MAC addresses
 - **Disk partitions** and I/O throughput
+- **GPU monitoring** — V3D clock (Pi 5), memory, temperature, hardware HEVC status
+- **NVMe temperature** via hwmon discovery (Pi 5)
 - **System info** — board model, kernel, architecture, uptime
 
 ## Supported Boards
 
 | Board | SoC | Features |
 |-------|-----|----------|
-| Raspberry Pi 5 | BCM2712 | Full: PMIC, fan, PCIe, PoE |
-| Raspberry Pi 4 Model B | BCM2711 | Voltages, PoE |
-| Raspberry Pi Zero 2 W | BCM2710 | Basic monitoring |
-| Generic Linux | — | CPU, memory, network, disk |
+| Raspberry Pi 5 | BCM2712 | Full: PMIC, fan, PCIe, PoE, V3D, NVMe temp |
+| Raspberry Pi 4 Model B | BCM2711 | Voltages, PoE, GPU |
+| Raspberry Pi 400 | BCM2711 | Voltages, GPU |
+| Compute Module 4 | BCM2711 | Voltages, GPU |
+| Raspberry Pi 3 Model B+ | BCM2837 | Basic monitoring, GPU |
+| Raspberry Pi 3 Model B | BCM2837 | Basic monitoring, GPU |
+| Raspberry Pi 3 Model A+ | BCM2837 | Basic monitoring, GPU |
+| Raspberry Pi 2 Model B | BCM2836 | Basic monitoring, GPU |
+| Raspberry Pi 1 | BCM2835 | Basic monitoring |
+| Raspberry Pi Zero 2 W | BCM2710/BCM2837 | Basic monitoring, GPU |
+| Raspberry Pi Zero W | BCM2835 | Basic monitoring |
+| Raspberry Pi Zero | BCM2835 | Basic monitoring |
+| Generic Linux | -- | CPU, memory, network, disk |
 
 ## Installation
 
@@ -92,7 +104,7 @@ pitop --config-check           # Validate your config file
 | `Space` | Pause / resume |
 | `t` | Cycle color theme |
 | `?` | Help overlay |
-| `j`/`k` or arrows | Navigate (Processes / Help) |
+| `j`/`k` or arrows | Navigate (Overview / Processes / Help) |
 | `s` | Cycle sort column (Processes tab) |
 | `K` | Kill selected process (with confirm) |
 | `Ctrl+S` | Toggle stress test |
@@ -100,7 +112,7 @@ pitop --config-check           # Validate your config file
 
 ## Tabs
 
-1. **Overview** — CPU, memory, temperature, network, fan speed
+1. **Overview** — CPU, GPU/load, temperature, memory gauges + power, board, network, disk info + process list
 2. **Processes** — Sortable process table with kill support
 3. **Power** — PMIC rails (Pi 5), voltages (Pi 4B), PCIe, PoE
 4. **Network** — Interface details, throughput sparklines

@@ -22,9 +22,9 @@ These work from any tab:
 
 ---
 
-## Processes tab
+## Process list shortcuts
 
-These shortcuts are only active when the Processes tab (tab 2) is selected:
+These shortcuts work on both the **Overview tab** (tab 1) and the **Processes tab** (tab 2):
 
 | Key | Action |
 |-----|--------|
@@ -32,6 +32,9 @@ These shortcuts are only active when the Processes tab (tab 2) is selected:
 | `k` or `Up` | Move selection up |
 | `s` | Cycle sort column (CPU% -> MEM -> PID -> Name -> User) |
 | `K` | Kill selected process (shows confirmation) |
+
+!!! note
+    The Overview tab includes an embedded process list that supports the same navigation and sorting keys as the dedicated Processes tab.
 
 ### Kill confirmation
 
@@ -79,9 +82,9 @@ Quit           q / Ctrl+C
 Pause          Space
 Theme          t
 Help           ?
-Process nav    j/k / arrows
-Process sort   s
-Process kill   K -> y/n
+Process nav    j/k / arrows  (Overview + Processes tabs)
+Process sort   s             (Overview + Processes tabs)
+Process kill   K -> y/n      (Overview + Processes tabs)
 Stress toggle  Ctrl+S
 Stress workers Ctrl+Up / Ctrl+Down
 ```

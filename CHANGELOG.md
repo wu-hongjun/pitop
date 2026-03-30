@@ -2,6 +2,33 @@
 
 All notable changes to pitop will be documented in this file.
 
+## [0.1.12] - 2026-03-29
+
+### UI
+- Redesigned Overview tab to match mactop layout: 4 gauge blocks (CPU, GPU/Load, Temperature, Memory), 4 info panels (Power, Board, Network, Disk), and an embedded process list (no sparklines)
+- Process list keyboard shortcuts (`j`/`k`/`s`/`K`) now work on the Overview tab in addition to the Processes tab
+- Disk info panel strips `/dev/` prefix and shows device name + mountpoint on separate lines
+- GPU section now shows V3D clock frequency (960 MHz) instead of core clock on Pi 5
+- GPU memory reported as "Shared" on Pi 5 (which uses shared system memory)
+- GPU codec display shows "Hardware HEVC (BCM2712)" instead of disabled codec marks on Pi 5
+- Automatic update check on startup with install command shown in footer
+
+### Hardware Detection
+- Zero 2W detection fixed: now matches `bcm2837` in addition to `bcm2710`
+- CPU model detection on ARM64: maps CPU part numbers to names (0xd03=Cortex-A53, 0xd0b=Cortex-A76, etc.)
+- All known Pi models now mapped: Pi 5, Pi 4B, Pi 400, CM4, Pi 3B+, Pi 3B, Pi 3A+, Pi 2B, Pi 1, Zero 2W, Zero W, Zero
+- NVMe temperature shown from hwmon sensor discovery
+
+### Bug Fixes
+- Fan detection fixed: now matches `pwmfan` hwmon name in addition to `cooling_fan`
+- PMIC power parser fixed for Pi 5 format with `RAIL_A current(N)=VALUE` style output
+- PCIe downgrade detection: only speed drops are flagged as downgrades, not width mismatches (Pi 5 M.2 HAT is x1 by design)
+- PoE detection: infers `online=true` when device exists with `type=Mains`
+
+### New Features
+- Power and voltage data now collected on the Overview tab (not just the Power tab)
+- Automatic update checker runs at startup and displays available update in footer with install command
+
 ## [0.1.0] - 2026-03-25
 
 ### Added

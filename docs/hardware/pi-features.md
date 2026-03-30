@@ -14,8 +14,9 @@ The Raspberry Pi 5 includes a Dialog DA9090 PMIC that provides per-rail voltage 
 vcgencmd pmic_read_adc
 ```
 
-This returns 12 voltage rails and 12 current rails, e.g.:
+This returns 12 voltage rails and 12 current rails. The output format varies by firmware version:
 
+**Standard format:**
 ```
 VDD_CORE_V=0.8750V
 VDD_CORE_A=1.2340A
@@ -23,6 +24,15 @@ VDD_CPU_V=0.9000V
 VDD_CPU_A=0.5670A
 ...
 ```
+
+**Pi 5 alternate format (newer firmware):**
+```
+RAIL_A current(7)=0.1234A
+RAIL_A voltage(7)=0.8750V
+...
+```
+
+pitop's PMIC parser handles both formats.
 
 ### Available rails
 
@@ -52,7 +62,7 @@ The Pi 5 has a dedicated 4-pin PWM fan header.
 
 ### Data source
 
-pitop discovers the fan hwmon device by scanning `/sys/class/hwmon/` and matching the device with `name` equal to `cooling_fan`.
+pitop discovers the fan hwmon device by scanning `/sys/class/hwmon/` and matching the device with `name` equal to `cooling_fan` or `pwmfan` (the name varies depending on the device tree overlay and fan type).
 
 !!! warning "No hardcoded hwmon numbers"
     hwmon numbers (e.g., `hwmon2`) change across reboots. pitop always discovers devices by enumerating all hwmon entries and matching by the `name` file content.
@@ -91,7 +101,10 @@ The Power tab shows:
 
 - **Link speed** (e.g., Gen 2 5.0 GT/s, Gen 3 8.0 GT/s)
 - **Lane width** (typically x1)
-- **Downgrade warning** if the link is running below its maximum capability
+- **Downgrade warning** if the link speed is running below the device's maximum capability
+
+!!! note "Width mismatches are not flagged"
+    The Pi 5 M.2 HAT connector is x1 by design. A device that is x4-capable running at x1 on the Pi 5 is expected behavior. Only speed drops (e.g., Gen 3-capable device running at Gen 2) are flagged as downgrades.
 
 ---
 
@@ -106,6 +119,8 @@ pitop detects Power over Ethernet HATs by scanning for power supply devices:
 ```
 
 If a PoE HAT is detected, the Power tab shows whether PoE power is being supplied and the current draw.
+
+When the PoE power supply device exists and reports `type=Mains`, pitop infers `online=true` even if the `online` sysfs attribute is absent. This handles cases where the kernel driver does not explicitly expose the online status.
 
 ### Supported HATs
 
@@ -146,12 +161,13 @@ The Pi 5 exposes additional thermal zones:
 | SoC | Main processor temperature |
 | PMIC | Power management IC temperature |
 | RP1 | Southbridge chip temperature |
+| NVMe | NVMe SSD temperature (discovered via hwmon) |
 
 These are discovered by scanning `/sys/class/thermal/` and matching by the `type` file.
 
 ### hwmon temperature sensors
 
-pitop also discovers temperature sensors via `/sys/class/hwmon/` by matching the `name` file content. This catches sensors that are not exposed as thermal zones.
+pitop also discovers temperature sensors via `/sys/class/hwmon/` by matching the `name` file content. This catches sensors that are not exposed as thermal zones, including NVMe drive temperature sensors.
 
 ---
 
@@ -196,11 +212,12 @@ GPU data is collected via multiple `vcgencmd` calls:
 
 | Command | Data |
 |---------|------|
-| `vcgencmd measure_clock core` | GPU core frequency in Hz |
-| `vcgencmd get_mem gpu` | GPU memory allocation in MB |
+| `vcgencmd measure_clock v3d` | V3D GPU clock frequency in Hz (Pi 5; falls back to `measure_clock core` on other boards) |
+| `vcgencmd measure_clock core` | GPU core frequency in Hz (Pi 4B, Pi 3, Zero 2W) |
+| `vcgencmd get_mem gpu` | GPU memory allocation in MB (shown as "Shared" on Pi 5) |
 | `vcgencmd measure_temp` | GPU temperature |
 | `vcgencmd codec_enabled H264` | H.264 hardware decode status |
-| `vcgencmd codec_enabled HEVC` | HEVC/H.265 hardware decode status |
+| `vcgencmd codec_enabled HEVC` | HEVC/H.265 hardware decode status (shown as "Hardware HEVC (BCM2712)" on Pi 5) |
 
 ### vcgencmd availability
 

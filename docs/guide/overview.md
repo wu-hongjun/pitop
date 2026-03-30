@@ -1,30 +1,41 @@
 # Overview Tab
 
-The Overview tab (tab 1) is the default landing view. It provides a real-time dashboard of key system metrics with sparkline history graphs.
+The Overview tab (tab 1) is the default landing view. It provides a real-time dashboard of key system metrics in a mactop-inspired layout with gauge blocks, info panels, and a process list.
 
 ---
 
 ## Layout
 
-The Overview tab is divided into several sections, arranged to fit within the terminal window:
+The Overview tab uses a mactop-style layout divided into three rows:
 
-- **CPU** -- per-core gauges, aggregate usage, clock frequency, sparkline
-- **Memory** -- RAM and swap usage with gauges and sparkline
-- **Thermal** -- SoC temperature with sparkline
-- **Network** -- per-interface throughput rates
-- **GPU** -- frequency, memory, temperature, codec status (Pi-specific)
-- **Fan** -- RPM and duty cycle (Pi 5 only)
+### Top row: 4 gauge blocks
+
+- **CPU** -- per-core gauges with aggregate usage and clock frequency
+- **GPU / Load** -- V3D clock frequency (Pi 5), load averages, GPU temperature
+- **Temperature** -- SoC temperature with color-coded gauge, plus PMIC/RP1/NVMe temps when available
+- **Memory** -- RAM and swap usage gauges with used/total display
+
+### Middle row: 4 info panels
+
+- **Power** -- total estimated wattage, input voltage, key rail readings (Pi 5 PMIC), or voltage readings (other Pi boards)
+- **Board** -- model name, SoC, CPU type, architecture, kernel version
+- **Network** -- per-interface throughput rates (RX/TX), excluding loopback
+- **Disk** -- partition usage with device name and mountpoint on separate lines (no `/dev/` prefix)
+
+### Bottom row: process list
+
+- Embedded process table showing top processes by CPU usage
+- Supports the same keyboard shortcuts as the Processes tab: `j`/`k` to navigate, `s` to cycle sort column, `K` to kill
 
 ---
 
-## CPU section
+## CPU gauge block
 
 Displays real-time CPU utilization parsed from `/proc/stat`.
 
 - **Per-core gauge bars** show individual core utilization as percentage bars
 - **Aggregate usage** is the average across all cores
 - **Current frequency** is read from `/sys/devices/system/cpu/cpufreq/`
-- **Sparkline** plots the last 60 samples (configurable via `history_size`) of aggregate CPU usage
 
 ### Color coding
 
@@ -36,13 +47,12 @@ Displays real-time CPU utilization parsed from `/proc/stat`.
 
 ---
 
-## Memory section
+## Memory gauge block
 
 Shows RAM and swap usage parsed from `/proc/meminfo`.
 
 - **RAM gauge** displays used / total and percentage
 - **Swap gauge** displays used / total and percentage (hidden if no swap is configured)
-- **Sparkline** tracks RAM usage percentage over time
 
 ### Color coding
 
@@ -54,14 +64,13 @@ Shows RAM and swap usage parsed from `/proc/meminfo`.
 
 ---
 
-## Thermal section
+## Temperature gauge block
 
 Displays SoC temperature from thermal zones in `/sys/class/thermal/`.
 
-- **Temperature reading** in degrees Celsius
-- **Sparkline** tracks temperature history
+- **Temperature gauge** with color-coded reading in degrees Celsius
 
-On Pi 5, additional thermal zones may appear for the PMIC and RP1 southbridge.
+On Pi 5, additional thermal zones may appear for the PMIC, RP1 southbridge, and NVMe drives (discovered via hwmon).
 
 ### Color coding
 
@@ -76,40 +85,61 @@ On Pi 5, additional thermal zones may appear for the PMIC and RP1 southbridge.
 
 ---
 
-## Network section
+## Network info panel
 
 Shows per-interface throughput rates parsed from `/proc/net/dev`.
 
 - **Download rate** (RX bytes/sec) for each interface
 - **Upload rate** (TX bytes/sec) for each interface
-- **Sparklines** for each interface's RX and TX history
 
 The loopback interface (`lo`) is filtered out by default.
 
 ---
 
-## GPU section
+## Disk info panel
 
-Displays GPU data collected via `vcgencmd`:
+Shows partition usage with device names and mountpoints.
 
-- **Core frequency** in MHz (from `vcgencmd measure_clock core`)
-- **Memory allocation** in MB (from `vcgencmd get_mem gpu`)
-- **Temperature** in Celsius (from `vcgencmd measure_temp`)
-- **Codec status** showing whether H264 and HEVC hardware decode is enabled
-
-!!! note
-    GPU data is only available on Raspberry Pi boards with `vcgencmd` installed. On other systems, this section is hidden.
+- **Device name** shown without the `/dev/` prefix (e.g., `sda1` instead of `/dev/sda1`)
+- **Mountpoint** displayed on a separate line below the device name
+- **Usage percentage** with color-coded gauge
 
 ---
 
-## Fan section (Pi 5 only)
+## Power info panel
 
-Displays fan speed data from the hwmon subsystem:
+Shows power and voltage readings collected in real time on the Overview tab:
 
-- **RPM** -- current fan speed in revolutions per minute
-- **Duty cycle** -- PWM duty as a percentage (0--100%)
+- **Pi 5**: Total estimated wattage, input voltage (EXT5V_V), and key PMIC rail readings
+- **Pi 4B and other boards**: Core and SDRAM voltage readings via `vcgencmd measure_volts`
 
-This section only appears on Pi 5 boards with the official fan connected. The fan hwmon device is discovered dynamically by scanning `/sys/class/hwmon/` for a device named `cooling_fan`.
+!!! note
+    Power/voltage data is collected on the Overview tab as well as the Power tab, so you can monitor power draw without switching tabs.
+
+---
+
+## Board info panel
+
+Shows hardware identification:
+
+- **Board model** and SoC name
+- **CPU type** with core names mapped from ARM CPU part numbers (e.g., Cortex-A76)
+- **Architecture** and kernel version
+
+---
+
+## GPU / Load gauge block
+
+Displays GPU and system load data:
+
+- **V3D clock frequency** in MHz on Pi 5 (from `vcgencmd measure_clock v3d`), or core clock on other boards
+- **GPU memory** shown as "Shared" on Pi 5 (which uses shared system memory), or allocation in MB on other boards
+- **GPU temperature** in Celsius (from `vcgencmd measure_temp`)
+- **Codec status**: shows "Hardware HEVC (BCM2712)" on Pi 5 instead of disabled codec marks
+- **Load averages** (1, 5, 15 minute)
+
+!!! note
+    GPU data is only available on Raspberry Pi boards with `vcgencmd` installed. On other systems, this section is hidden.
 
 ---
 
