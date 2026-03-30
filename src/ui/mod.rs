@@ -10,6 +10,7 @@ pub mod theme;
 mod widgets;
 
 use crate::app::{App, TAB_NAMES};
+use crate::util::update_check::UpdateStatus;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -144,6 +145,28 @@ fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
                 stress_indicator,
                 Style::default().fg(theme.text_dim),
             ));
+        }
+    }
+
+    // If an update is available, show the install command instead of normal hints
+    if let Some(ref handle) = app.update_status {
+        if let Ok(guard) = handle.try_lock() {
+            if let UpdateStatus::Available(ref ver) = *guard {
+                let update_spans = vec![
+                    Span::styled(
+                        format!(" Update v{} available: ", ver),
+                        Style::default()
+                            .fg(theme.gauge_warn)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        "curl -sL https://pitop.hongjunwu.com/install.sh | sh",
+                        Style::default().fg(theme.text),
+                    ),
+                ];
+                f.render_widget(Paragraph::new(Line::from(update_spans)), area);
+                return;
+            }
         }
     }
 

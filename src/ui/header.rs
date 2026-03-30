@@ -30,13 +30,13 @@ pub fn draw(f: &mut Frame, app: &App, area: Rect) {
         throttle_span,
     ];
 
-    // Show update notice if a newer version is available
+    // Show update dot in header — full instructions are in the footer
     if let Some(ref handle) = app.update_status {
         if let Ok(guard) = handle.try_lock() {
             if let UpdateStatus::Available(ref ver) = *guard {
                 spans.push(Span::raw(" │ "));
                 spans.push(Span::styled(
-                    format!("Update v{} available", ver),
+                    format!("v{} available \u{2193}", ver),
                     Style::default()
                         .fg(theme.gauge_warn)
                         .add_modifier(Modifier::BOLD),
