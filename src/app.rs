@@ -230,7 +230,7 @@ impl App {
             }
             // Query V3D codec status
             let mut codecs = Vec::new();
-            for codec in &["H264", "HEVC"] {
+            for codec in &["H264", "HEVC", "MJPG"] {
                 if let Some(output) = self.vcgencmd.run(&["codec_enabled", codec]).await {
                     if let Some(status) = gpu::parse_codec_enabled(codec, &output) {
                         codecs.push(status);
